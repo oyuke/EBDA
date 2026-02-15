@@ -52,17 +52,20 @@ class CausalVisualizer:
                 for d_id in card.required_evidence['drivers']:
                     if d_id in self.drivers:
                         edge_color = 'black'
-                        # Highlight edge if driver is low (problematic)
+                        edge_label = "" # No explicit coefficient in Rule-based model
+                        
+                        # Highlight edge if driver is low
                         if driver_scores and d_id in driver_scores:
                             if driver_scores[d_id] < 3.0: edge_color = 'red'
                             
-                        dot.edge(d_id, card.id, color=edge_color)
+                        dot.edge(d_id, card.id, color=edge_color, label=edge_label)
             
             # Connect KPIs to card (Simple node for KPIs)
             if card.required_evidence and 'kpis' in card.required_evidence:
                 for kpi in card.required_evidence['kpis']:
                     kpi_id = f"kpi_{kpi}"
-                    dot.node(kpi_id, kpi, shape='diamond')
+                    # User requested non-diamond shape due to width. Using 'box' (rect).
+                    dot.node(kpi_id, kpi, shape='box', style='rounded,filled', fillcolor='#e6e6e6')
                     dot.edge(kpi_id, card.id)
 
         return dot
