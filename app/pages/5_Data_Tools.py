@@ -10,7 +10,7 @@ st.title("🛠️ Data Management & Conversion")
 
 st.markdown("Convert human-editable CSVs into JSON/YAML configuration for the app.")
 
-tab1, tab2, tab3 = st.tabs(["1. Config Builder", "2. Data Converter (Evidence)", "3. Export Current Config"])
+tab1, tab2, tab3, tab4 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor"])
 
 # --- Tab 1: Config Builder ---
 with tab1:
@@ -72,5 +72,59 @@ with tab3:
         # Full YAML
         full_yaml = yaml.dump(config.dict(), sort_keys=False)
         st.download_button("Download Full Config YAML", full_yaml, "full_config.yaml", "text/yaml")
+    else:
+        st.warning("No configuration loaded.")
+
+# --- Tab 4: Interactive Editor ---
+with tab4:
+    if 'config' in st.session_state:
+        st.subheader("Edit Active Configuration")
+        config = st.session_state.config
+        
+        st.info("⚠️ Changes made here apply immediately to the session but must be Exported to persist.")
+        
+        # 1. Drivers Editor
+        st.markdown("### 1. Drivers")
+        df_drivers_current = DataConverter.drivers_to_csv(config.drivers)
+        edited_drivers_df = st.data_editor(df_drivers_current, num_rows="dynamic", key="editor_drivers_df")
+        
+        if st.button("Apply Driver Changes"):
+            try:
+                new_drivers = DataConverter.csv_to_drivers(edited_drivers_df)
+                st.session_state.config.drivers = new_drivers
+                st.success(f"Updated {len(new_drivers)} drivers!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error parsing drivers: {e}")
+
+        st.markdown("---")
+
+        # 2. Cards Editor
+        st.markdown("### 2. Decision Cards")
+        df_cards_current = DataConverter.decision_card_to_csv(config.decision_cards)
+        edited_cards_df = st.data_editor(df_cards_current, num_rows="dynamic", key="editor_cards_df")
+        
+        if st.button("Apply Card Changes"):
+            try:
+                new_cards = DataConverter.csv_to_decision_card(edited_cards_df)
+                st.session_state.config.decision_cards = new_cards
+                st.success(f"Updated {len(new_cards)} decision cards!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error parsing cards: {e}")
+
+        # 3. Weights
+        st.markdown("### 3. Priority Weights")
+        c1, c2, c3 = st.columns(3)
+        current_w = config.priority_weights
+        w_imp = c1.number_input("Impact Weight", 0.1, 10.0, float(current_w.get("impact", 1.0)))
+        w_urg = c2.number_input("Urgency Weight", 0.1, 10.0, float(current_w.get("urgency", 1.0)))
+        w_unc = c3.number_input("Uncertainty Weight", 0.1, 10.0, float(current_w.get("uncertainty", 1.0)))
+        
+        if st.button("Update Weights"):
+            st.session_state.config.priority_weights = {"impact": w_imp, "urgency": w_urg, "uncertainty": w_unc}
+            st.success("Weights Updated!")
+            st.rerun()
+
     else:
         st.warning("No configuration loaded.")
