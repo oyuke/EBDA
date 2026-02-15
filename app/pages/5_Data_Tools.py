@@ -13,12 +13,14 @@ from core.security import SecurityManager
 from core.llm import LLMClient
 import io
 
+from core.i18n import I18nManager
+
 st.set_page_config(page_title="Data Tools", layout="wide")
 st.title("🛠️ Data Management & Conversion")
 
 st.markdown("Convert human-editable CSVs into JSON/YAML configuration for the app.")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor", "5. AI Generator", "6. 🔐 API Settings"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor", "5. AI Generator", "6. 🔐 API Settings", "7. 🌐 Localization"])
 
 # --- Tab 1: Config Builder ---
 with tab1:
@@ -391,3 +393,59 @@ with tab5:
                 st.rerun()
             except Exception as e:
                 st.error(f"Error parsing AI output: {e}")
+
+
+# --- Tab 7: Localization ---
+with tab7:
+    st.subheader("🌐 Language & Localization")
+    
+    # 1. Global Language Selector
+    current_lang = PreferenceManager.get("language", "en")
+    avail_langs = I18nManager.available_languages()
+    
+    # Session State Init
+    if "lang_select" not in st.session_state:
+        st.session_state.lang_select = current_lang
+    
+    def on_lang_change():
+        new_lang = st.session_state.editor_lang_key
+        PreferenceManager.save("language", new_lang)
+        st.session_state["language"] = new_lang
+        st.toast(f"Language changed to {new_lang}!", icon="🌍")
+
+    try: 
+        l_idx = avail_langs.index(current_lang)
+    except: 
+        l_idx = 0
+    
+    selected = st.selectbox("Display Language", avail_langs, index=l_idx, key="editor_lang_key", on_change=on_lang_change)
+    
+    st.markdown("---")
+    
+    # 2. JSON Editor
+    st.markdown("### 📝 Edit Translations")
+    st.caption("Edit the JSON below to add new languages or modify text. Changes apply immediately upon saving.")
+    
+    current_data = I18nManager.load()
+    
+    text_val = json.dumps(current_data, indent=2, ensure_ascii=False)
+    edited_json = st.text_area("Locales JSON Configuration", 
+                               value=text_val, 
+                               height=600)
+    
+    c1, c2 = st.columns([1, 4])
+    with c1:
+        if st.button("💾 Save Changes"):
+            try:
+                new_data = json.loads(edited_json)
+                I18nManager.save(new_data)
+                st.success("Translations saved successfully! Reloading...")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Invalid JSON: {e}")
+    
+    with c2:
+        if st.button("🔄 Reset to Defaults"):
+            I18nManager.save(I18nManager._get_default_structure())
+            st.success("Reset to defaults.")
+            st.rerun()

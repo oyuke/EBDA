@@ -6,7 +6,8 @@ import sys
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from core.io import ConfigLoader
+from core.io import ConfigLoader, PreferenceManager
+from core.i18n import I18nManager
 from core.quality import QualityGateway
 from core.decision import DecisionEngine
 from core.priority import PriorityCalculator
@@ -18,16 +19,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize Language Session State
+if "language" not in st.session_state:
+    st.session_state["language"] = PreferenceManager.get("language", "en")
+
 # Initialize Session State
 if 'config' in st.session_state:
-    st.info(f"✅ Loaded Configuration: {st.session_state.config.customer_name} (v{st.session_state.config.version})")
+    st.info(f"✅ {I18nManager.get('home.status_loaded', 'Loaded Configuration')}: {st.session_state.config.customer_name} (v{st.session_state.config.version})")
 else:
-    st.warning("⚠️ No configuration loaded. Please initialize the project.")
+    st.warning(f"⚠️ {I18nManager.get('home.status_missing', 'No configuration loaded. Please initialize the project.')}")
     
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("A. Load Demo Project")
-        if st.button("Load Default Demo (Sample)"):
+        if st.button(I18nManager.get("home.action_load", "Load Default Demo (Sample)")):
             loader = ConfigLoader("configs/customer_default.yaml")
             st.session_state.config = loader.load_config()
             st.success("Demo configuration loaded!")
@@ -58,11 +63,11 @@ else:
 if 'waves' not in st.session_state:
     st.session_state.waves = {} # Load from DB or file later check snapshot
 
-st.title("🛡️ Evidence-Based Decision Support System")
-st.markdown("""
+st.title(I18nManager.get("home.title", "🛡️ Evidence-Based Decision Support System"))
+st.markdown(I18nManager.get("home.subtitle", """
 > **Paradigm Shift**: From "Measurement" to "Decision Making".
 > This system supports transparent, evidence-based decision making with quality gates.
-""")
+"""))
 
 st.info(f"Loaded Configuration: {st.session_state.config.customer_name} (v{st.session_state.config.version})")
 

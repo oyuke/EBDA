@@ -1,0 +1,48 @@
+{
+    "en": {
+        "sidebar": {
+            "home": "Home",
+            "decision_board": "Decision Board",
+            "evidence_input": "Evidence Input",
+            "data_tools": "Settings & Data",
+            "quality_report": "Quality Report"
+        },
+        "home": {
+            "title": "Evidence-Based Decision Support System",
+            "subtitle": "\n> **Paradigm Shift**: From \"Measurement\" to \"Decision Making\".\n> This system supports transparent, evidence-based decision making with quality gates.\n",
+            "load_config": "Load Configuration",
+            "status_loaded": "Configuration Loaded",
+            "status_missing": "Configuration Missing",
+            "action_load": "Load Default Demo (Sample)"
+        },
+        "common": {
+            "save": "Save",
+            "cancel": "Cancel",
+            "error": "Error",
+            "success": "Success"
+        }
+    },
+    "ja": {
+        "sidebar": {
+            "home": "ホーム",
+            "decision_board": "意思決定ボード",
+            "evidence_input": "エビデンス入力",
+            "data_tools": "設定とデータ",
+            "quality_report": "品質レポート"
+        },
+        "home": {
+            "title": "エビデンスに基づく意思決定支援システム",
+            "subtitle": "\n> **パラダイムシフト**: 「測定」から「意思決定」へ。\n> 品質ゲートを用いた透明性の高いエビデンスベースの意思決定を支援します。\n",
+            "load_config": "設定ロード",
+            "status_loaded": "設定読込済み",
+            "status_missing": "設定未ロード",
+            "action_load": "デモ設定をロード（サンプル）"
+        },
+        "common": {
+            "save": "保存",
+            "cancel": "キャンセル",
+            "error": "エラー",
+            "success": "成功"
+        }
+    }
+}
