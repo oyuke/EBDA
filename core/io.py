@@ -40,3 +40,33 @@ class DataLoader:
             # For MVP, try creating dummy data if not found
             print(f"File {file_path} not found.")
             return pd.DataFrame() # Empty
+class PreferenceManager:
+    _file_path = ".secrets/user_prefs.json"
+
+    @classmethod
+    def _get_path(cls):
+        return cls._file_path
+
+    @classmethod
+    def load(cls) -> dict:
+        import os, json
+        if os.path.exists(cls._get_path()):
+            try:
+                with open(cls._get_path(), "r") as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    @classmethod
+    def save(cls, key: str, value: Any):
+        import os, json
+        prefs = cls.load()
+        prefs[key] = value
+        os.makedirs(os.path.dirname(cls._get_path()), exist_ok=True)
+        with open(cls._get_path(), "w") as f:
+            json.dump(prefs, f)
+
+    @classmethod
+    def get(cls, key: str, default=None):
+        return cls.load().get(key, default)

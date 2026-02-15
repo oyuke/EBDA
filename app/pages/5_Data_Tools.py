@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import yaml
 from core.converter import DataConverter
+from core.io import ConfigLoader, PreferenceManager
 from data.models import DecisionCardConfig, DriverConfig
 from core.templates import DataTemplates
 from core.security import SecurityManager
@@ -103,7 +104,20 @@ with tab4:
             c_prov, c_model = st.columns(2)
             
             with c_prov:
-                llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"], key="copilot_provider")
+                # Preference loading
+                saved_provider = PreferenceManager.get("copilot_provider", "OpenAI")
+                prov_options = ["OpenAI", "Google (Gemini)", "OpenRouter"]
+                try:
+                    def_idx = prov_options.index(saved_provider)
+                except:
+                    def_idx = 0
+                
+                def on_prov_change():
+                    # Check session state for the key 'copilot_provider'
+                    if 'copilot_provider' in st.session_state:
+                         PreferenceManager.save("copilot_provider", st.session_state.copilot_provider)
+
+                llm_provider = st.selectbox("Select Provider", prov_options, index=def_idx, key="copilot_provider", on_change=on_prov_change)
                 api_key = SecurityManager.get_api_key(llm_provider)
                 
                 if api_key:
