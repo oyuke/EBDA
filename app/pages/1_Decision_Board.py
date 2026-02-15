@@ -224,13 +224,26 @@ for card, state, score_res, final_impact, final_urgency in card_states:
                     st.caption(f"Average Rank: {score_res.get('avg_rank', 0):.2f}")
                 
                 elif "breakdown" in score_res:
-                    st.write("**Breakdown:**")
+                    st.write("**Breakdown (SAW):**")
                     breakdown = score_res.get("breakdown", {})
+                    inputs = score_res.get("inputs", {})
+                    
                     if breakdown:
                          term_imp = breakdown.get("impact_term", 0)
                          term_urg = breakdown.get("urgency_term", 0)
                          term_unc = breakdown.get("uncertainty_term", 0)
-                         st.latex(f"{term_imp:.2f} + {term_urg:.2f} - {abs(term_unc):.2f}")
+                         
+                         # Get inputs if available for transparency
+                         val_imp = inputs.get("impact", final_impact)
+                         val_urg = inputs.get("urgency", final_urgency)
+                         val_unc = inputs.get("uncertainty", state.confidence_penalty)
+                         
+                         w_imp = priority_calc.w_impact
+                         w_urg = priority_calc.w_urgency
+                         w_unc = priority_calc.w_uncertainty
+                         
+                         st.latex(f"({val_imp:.2f} \\times {w_imp:.1f}) + ({val_urg:.2f} \\times {w_urg:.1f}) - ({val_unc:.2f} \\times {w_unc:.1f})")
+                         st.latex(f"= {term_imp:.2f} + {term_urg:.2f} - {abs(term_unc):.2f} = {score_res['score']:.2f}")
                 
                 if quality_penalty > 0.1:
                     st.warning(f"⚠️ Confidence Penalty applied: -{quality_penalty:.2f} due to data quality issues.")
