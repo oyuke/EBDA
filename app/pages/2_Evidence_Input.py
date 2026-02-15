@@ -54,6 +54,27 @@ if uploaded_survey:
         st.session_state.survey_quality = {"penalty": penalty, "checks": checks}
         st.success("Survey data ingested for analysis.")
 
+# 1.5. Edit Active Survey Data
+if 'survey_data' in st.session_state:
+    st.markdown("### ✏️ Edit Active Survey Data")
+    with st.expander("Show Data Editor", expanded=True):
+        edited_df = st.data_editor(st.session_state.survey_data, num_rows="dynamic", key="active_survey_editor")
+        
+        if st.button("Apply Data Changes"):
+            # Re-run quality checks on edited data
+            penalty, checks = gateway.check_survey_data(edited_df)
+            drivers = st.session_state.config.drivers
+            alpha_penalty, alpha_checks = gateway.check_cronbach_alpha(edited_df, drivers)
+            
+            penalty += alpha_penalty
+            penalty = min(penalty, 1.0)
+            checks.extend(alpha_checks)
+            
+            st.session_state.survey_data = edited_df
+            st.session_state.survey_quality = {"penalty": penalty, "checks": checks}
+            st.success("Data updated and re-validated!")
+            st.rerun()
+
 # 3. Upload KPI Data
 st.subheader("2. KPI Data (Facts)")
 uploaded_kpi = st.file_uploader("Upload KPI CSV", type=["csv"])
