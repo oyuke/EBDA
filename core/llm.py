@@ -17,16 +17,22 @@ class LLMClient:
         if not self.api_key:
             return "Error: No API Key provided."
             
+        if item_type == "Survey Data":
+            col_hint = "Columns: Determined by Driver definitions (e.g. Q1, Q2...)"
+        else:
+            col_hint = """
+        Columns for Drivers: id, label, survey_items (comma-separated), range (e.g. 1-5)
+        Columns for Cards: id, title, decision_question, stakeholders, drivers (ids), kpis, rules
+            """
+
         system_prompt = f"""
         You are a Data Architect extension for a Decision Support System.
         Your task is to suggest additional {item_type} based on the existing configuration provided below.
         
         Output format: CSV rows only (no header, no markdown).
-        Columns for Drivers: id, label, survey_items (comma-separated), range (e.g. 1-5)
-        Columns for Cards: id, title, decision_question, stakeholders, drivers (ids), kpis, rules
+        {col_hint}
         
-        Generate 2 high-quality, relevant suggestions that complement the existing set.
-        Ensure IDs are unique (increment from existing max ID if possible, else use random suffix).
+        Generate high-quality, relevant data rows.
         """
         
         user_prompt = f"Existing Configuration Context:\n{context}\n\nSuggest 2 new {item_type}:"
