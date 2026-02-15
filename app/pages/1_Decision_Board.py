@@ -94,6 +94,9 @@ for card in config.decision_cards:
         urgency = 0.9
     elif "overtime" in str(state.key_evidence):
         urgency = 0.7
+
+    # Use global quality penalty as uncertainty
+    uncertainty = quality_penalty
     
     # --- Simulation Mode ---
     with st.expander(f"🎛️ What-If Simulation ({card.id})"):
