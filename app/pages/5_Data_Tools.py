@@ -101,26 +101,46 @@ with tab4:
         # LLM Assist UI
         with st.expander("✨ AI Copilot (Add new metrics/cards)", expanded=False):
             c_prov, c_model = st.columns(2)
+            
             with c_prov:
                 llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"])
-            
-            with c_model:
-                if llm_provider == "OpenAI":
-                    model_options = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
-                elif llm_provider == "Google (Gemini)":
-                    model_options = ["gemini-1.5-flash", "gemini-1.5-pro"]
-                else: # OpenRouter
-                    model_options = ["google/gemini-2.0-flash-001", "anthropic/claude-3-opus", "anthropic/claude-3-sonnet", "meta-llama/llama-3-70b-instruct"]
+                api_key = SecurityManager.get_api_key(llm_provider)
                 
-                selected_model = st.selectbox("Select Model", model_options, key="model_selector")
+                if api_key:
+                    if st.button("🔄 Fetch Models from API"):
+                        with st.spinner(f"Fetching models for {llm_provider}..."):
+                            models = LLMClient.fetch_available_models(llm_provider, api_key)
+                            st.session_state[f"models_{llm_provider}"] = models
+                            if not models:
+                                st.error("No models found or API error.")
+                else:
+                    st.warning("Save API Key in Tab 6 first.")
+
+            with c_model:
+                # Get models from session or default
+                model_list = st.session_state.get(f"models_{llm_provider}", [])
+                
+                if not model_list:
+                    # Fallback defaults if not fetched
+                    if llm_provider == "OpenAI":
+                        model_list = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+                    elif llm_provider == "Google (Gemini)":
+                        model_list = ["gemini-1.5-flash", "gemini-1.5-pro"]
+                    else: 
+                        model_list = ["google/gemini-2.0-flash-001", "anthropic/claude-3-sonnet"]
+                
+                # Search/Filter
+                search_query = st.text_input("Filter Models", placeholder="e.g. flash, gpt-4...")
+                filtered_models = [m for m in model_list if search_query.lower() in m.lower()] if search_query else model_list
+                
+                selected_model = st.selectbox("Select Model", filtered_models, key="model_selector")
 
             if st.button("Initialize Copilot"):
-                api_key = SecurityManager.get_api_key(llm_provider)
-                if api_key:
+                if api_key and selected_model:
                     st.session_state['llm_client'] = LLMClient(llm_provider, api_key, selected_model)
                     st.success(f"Copilot Ready! ({selected_model})")
                 else:
-                    st.error("API Key not found. Please set it in 'API Settings' tab.")
+                    st.error("Please configure Provider, Key, and Model.")
 
         st.info("⚠️ Changes made here apply immediately to the session but must be Exported to persist.")
         

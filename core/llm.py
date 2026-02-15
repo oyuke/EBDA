@@ -58,3 +58,34 @@ class LLMClient:
             return f"Error calling LLM: {str(e)}"
             
         return "Error: Provider not supported."
+
+    @staticmethod
+    def fetch_available_models(provider: str, api_key: str) -> List[str]:
+        if not api_key: return []
+        
+        try:
+            if provider == "OpenAI":
+                client = openai.OpenAI(api_key=api_key)
+                models = client.models.list()
+                # Filter for chat models usually starting with gpt
+                return sorted([m.id for m in models.data if "gpt" in m.id])
+                
+            elif provider == "Google (Gemini)":
+                genai.configure(api_key=api_key)
+                models = genai.list_models()
+                # Filter for generateContent supported models
+                return sorted([m.name.replace("models/", "") for m in models if "generateContent" in m.supported_generation_methods])
+                
+            elif provider == "OpenRouter":
+                import requests
+                headers = {"Authorization": f"Bearer {api_key}"}
+                resp = requests.get("https://openrouter.ai/api/v1/models", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    return sorted([m["id"] for m in data])
+                    
+        except Exception as e:
+            st.error(f"Failed to fetch models: {e}")
+            return []
+            
+        return []
