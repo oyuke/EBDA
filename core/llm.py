@@ -57,11 +57,23 @@ class LLMClient:
                         {"role": "user", "content": user_prompt}
                     ]
 
-                response = client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    temperature=0.7
-                )
+                try:
+                    response = client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        temperature=0.7
+                    )
+                except openai.BadRequestError as e:
+                    # Retry if standard call failed (likely due to system role support)
+                    if "instruction" in str(e).lower() or "system" in str(e).lower() or "unsupported" in str(e).lower() or "400" in str(e):
+                        fallback_msg = [{"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"}]
+                        response = client.chat.completions.create(
+                            model=self.model_name,
+                            messages=fallback_msg,
+                            temperature=0.7
+                        )
+                    else:
+                        raise e
                 return response.choices[0].message.content
                 
             elif self.provider == "Google (Gemini)":
