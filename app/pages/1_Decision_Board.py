@@ -19,6 +19,11 @@ from core.audit import AuditLogger
 from core.visualizer import CausalVisualizer
 from core.sidebar import render_sidebar
 from core.i18n import I18nManager
+from core.scoring import (
+    prepare_candidates,
+    compute_driver_scores,
+    get_kpi_latest
+)
 import graphviz
 
 
@@ -26,22 +31,16 @@ st.set_page_config(page_title="Decision Board", layout="wide")
 render_sidebar()
 
 # Helpers
-def compute_driver_scores(df, drivers):
-    scores = {}
-    if df is None: return scores
-    for driver in drivers:
-        cols = [c for c in driver.survey_items if c in df.columns]
-        if cols:
-            # Simple average of items (1-5 scale)
-            scores[driver.id] = df[cols].mean(axis=1).mean()
-    return scores
+# ...
+# Sidebar Config
+st.sidebar.markdown("### Settings")
+if "ranking_method" not in st.session_state: st.session_state.ranking_method = "SAW (Transparent)"
+ranking_method = st.sidebar.radio("Ranking Algorithm", ["SAW (Transparent)", "WASPAS (Robust)", "TOPSIS (Relative)", "Composite (Ensemble)"], index=0, key="ranking_method_sel", on_change=lambda: st.session_state.update({"ranking_method": st.session_state.ranking_method_sel}))
+# Ensure sync
+ranking_method = st.session_state.get("ranking_method", ranking_method)
 
-def get_kpi_latest(df, kpi_name):
-    if df is None: return None
-    if kpi_name in df.columns:
-        # Assuming sorted by date or taking last
-        return df[kpi_name].iloc[-1]
-    return 0.0
+# Engines
+
 
 # 1. Initialization
 if 'config' not in st.session_state:
@@ -53,9 +52,7 @@ survey_df = st.session_state.get('survey_data')
 kpi_df = st.session_state.get('kpi_data')
 quality_penalty = st.session_state.get('survey_quality', {}).get('penalty', 0.0)
 
-# Sidebar Config
-st.sidebar.markdown("### Settings")
-ranking_method = st.sidebar.radio("Ranking Algorithm", ["SAW (Transparent)", "WASPAS (Robust)", "TOPSIS (Relative)", "Composite (Ensemble)"], index=0)
+
 
 # Engines
 decision_engine = DecisionEngine()
@@ -76,43 +73,13 @@ if kpi_df is not None:
     evidence_context['manager_overtime'] = get_kpi_latest(kpi_df, 'manager_overtime')
 
 # 3. Evaluate & Rank Cards (Moved Up)
-candidates = []
-
-for card in config.decision_cards:
-    # Rule Evaluation
-    state = decision_engine.evaluate_card(card, evidence_context)
-    
-    # Base Values Logic
-    impact = 0.5 # Default neutral
-    urgency = 0.5
-    
-    # Simple Logic for Impact Transparency
-    if state.status == "RED": impact = 0.9
-    elif state.status == "YELLOW": impact = 0.6
-    
-    # Simple Logic for Urgency
-    if "turnover" in str(state.key_evidence): urgency = 0.9
-    elif "overtime" in str(state.key_evidence): urgency = 0.7
-
-    # Use global quality penalty as uncertainty
-    uncertainty = quality_penalty
-
-    # Check for Simulation Overrides in Session State
-    sim_imp_key = f"sim_imp_{card.id}"
-    sim_urg_key = f"sim_urg_{card.id}"
-    
-    if sim_imp_key in st.session_state: impact = st.session_state[sim_imp_key]
-    if sim_urg_key in st.session_state: urgency = st.session_state[sim_urg_key]
-
-    # Collect for Batch Ranking
-    candidates.append({
-        "id": card.id,
-        "impact": impact,
-        "urgency": urgency,
-        "uncertainty": uncertainty,
-        "_card": card,
-        "_state": state
-    })
+candidates = prepare_candidates(
+    config.decision_cards,
+    decision_engine,
+    evidence_context,
+    quality_penalty,
+    overrides=st.session_state
+)
 
 # Batch Ranking Call
 ranked_candidates = priority_calc.rank_candidates(candidates, method=ranking_method)

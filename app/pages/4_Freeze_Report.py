@@ -13,6 +13,11 @@ from core.quality import QualityGateway
 from core.io import DataLoader
 from core.sidebar import render_sidebar
 from core.i18n import I18nManager
+from core.scoring import (
+    prepare_candidates,
+    compute_driver_scores,
+    get_kpi_latest
+)
 
 st.set_page_config(page_title="Report & Freeze", layout="wide")
 render_sidebar()
@@ -37,31 +42,37 @@ def get_current_state():
     priority_calc = PriorityCalculator(config.priority_weights)
     
     # Context (simplified MVP logic)
-    context = {}
-    if survey_df is not None:
-        for driver in config.drivers:
-            cols = [c for c in driver.survey_items if c in survey_df.columns]
-            if cols: context[driver.id] = survey_df[cols].mean().mean()
-            
+    evidence_context = compute_driver_scores(survey_df, config.drivers)
     if kpi_df is not None:
-        if 'turnover_rate_junior' in kpi_df.columns:
-            context['turnover_rate_junior'] = kpi_df['turnover_rate_junior'].iloc[-1]
+        evidence_context['turnover_rate_junior'] = get_kpi_latest(kpi_df, 'turnover_rate_junior')
+        evidence_context['avg_overtime_hours'] = get_kpi_latest(kpi_df, 'avg_overtime_hours')
+        evidence_context['manager_overtime'] = get_kpi_latest(kpi_df, 'manager_overtime')
             
-    states = []
     penalty = st.session_state.get('survey_quality', {}).get('penalty', 0.0)
     
-    for card in config.decision_cards:
-        s = decision_engine.evaluate_card(card, context)
-        # Mock priority for report consistency with dashboard
-        impact = 0.8 if s.status == "RED" else 0.4
-        urgency = 0.5 # Default mock
-        uncertainty = penalty
+    # Use shared logic consistent with Decision Board
+    candidates = prepare_candidates(
+        config.decision_cards,
+        decision_engine,
+        evidence_context,
+        penalty,
+        overrides=st.session_state
+    )
+
+    # Use same ranking method as Decision Board
+    method = st.session_state.get("ranking_method", "SAW (Transparent)")
+    ranked = priority_calc.rank_candidates(candidates, method=method)
+    
+    states = []
+    for item in ranked:
+        s = item["_state"]
+        s.total_priority = item["score"]
+        # Score Result (details + score)
+        score_res = item.get("_details", {})
+        score_res["score"] = item["score"]
+        states.append((item["_card"], s, score_res))
         
-        score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
-        s.total_priority = score_res["score"]
-        states.append((card, s, score_res))
-        
-    return states, context
+    return states, evidence_context
 
 current_states, context = get_current_state()
 
