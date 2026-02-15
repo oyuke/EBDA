@@ -109,10 +109,15 @@ with tab4:
                 if api_key:
                     if st.button("🔄 Fetch Models from API"):
                         with st.spinner(f"Fetching models for {llm_provider}..."):
-                            models = LLMClient.fetch_available_models(llm_provider, api_key)
-                            st.session_state[f"models_{llm_provider}"] = models
-                            if not models:
-                                st.error("No models found or API error.")
+                            try:
+                                models = LLMClient.fetch_available_models(llm_provider, api_key)
+                                st.session_state[f"models_{llm_provider}"] = models
+                                if not models:
+                                    st.error("No models found or API error.")
+                            except AttributeError:
+                                st.error("System update pending. Please stop and restart the app server.")
+                            except Exception as e:
+                                st.error(f"Error: {e}")
                 else:
                     st.warning("Save API Key in Tab 6 first.")
 
