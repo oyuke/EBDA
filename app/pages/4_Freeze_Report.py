@@ -11,9 +11,12 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from core.quality import QualityGateway
 from core.io import DataLoader
+from core.sidebar import render_sidebar
+from core.i18n import I18nManager
 
 st.set_page_config(page_title="Report & Freeze", layout="wide")
-st.title("📑 Report Generation & Freeze")
+render_sidebar()
+st.title(f"📑 {I18nManager.get('sidebar.freeze_report', 'Report Generation & Freeze')}")
 
 # 1. State Check
 if 'config' not in st.session_state:

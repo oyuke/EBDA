@@ -17,10 +17,13 @@ from core.decision import DecisionEngine
 from core.snapshot import SnapshotManager
 from core.audit import AuditLogger
 from core.visualizer import CausalVisualizer
+from core.sidebar import render_sidebar
+from core.i18n import I18nManager
 import graphviz
 
 
 st.set_page_config(page_title="Decision Board", layout="wide")
+render_sidebar()
 
 # Helpers
 def compute_driver_scores(df, drivers):
@@ -60,7 +63,7 @@ priority_calc = PriorityCalculator(config.priority_weights)
 audit_logger = AuditLogger()
 snapshot_manager = SnapshotManager()
 
-st.title("🚦 Decision Board")
+st.title(f"🚦 {I18nManager.get('sidebar.decision_board', 'Decision Board')}")
 st.markdown("Prioritized list of decision cards based on evidence.")
 
 # Visualize Causal Graph (Transparency)

@@ -9,9 +9,12 @@ from core.io import DataLoader, PreferenceManager
 from core.templates import DataTemplates
 from core.llm import LLMClient
 from core.security import SecurityManager
+from core.sidebar import render_sidebar
+from core.i18n import I18nManager
 
 st.set_page_config(page_title="Evidence Input", layout="wide")
-st.title("📥 Evidence Ingestion & Quality Gate")
+render_sidebar()
+st.title(f"📥 {I18nManager.get('sidebar.evidence_input', 'Evidence Ingestion & Quality Gate')}")
 
 # 1. Initialize Quality Gateway
 if 'config' not in st.session_state:

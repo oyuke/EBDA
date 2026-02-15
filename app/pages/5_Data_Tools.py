@@ -15,8 +15,12 @@ import io
 
 from core.i18n import I18nManager
 
+from core.sidebar import render_sidebar
+
 st.set_page_config(page_title="Data Tools", layout="wide")
-st.title("🛠️ Data Management & Conversion")
+render_sidebar()
+
+st.title(f"🛠️ {I18nManager.get('sidebar.data_tools', 'Data Management & Conversion')}")
 
 st.markdown("Convert human-editable CSVs into JSON/YAML configuration for the app.")
 

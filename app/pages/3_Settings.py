@@ -5,8 +5,14 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 
+from core.sidebar import render_sidebar
+from core.i18n import I18nManager
+
+
 st.set_page_config(page_title="Settings", layout="wide")
-st.title("⚙️ Helper & Configuration")
+render_sidebar()
+
+st.title(f"⚙️ {I18nManager.get('sidebar.settings', 'Helper & Configuration')}")
 
 if 'config' in st.session_state:
     config = st.session_state.config

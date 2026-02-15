@@ -63,25 +63,32 @@ else:
 if 'waves' not in st.session_state:
     st.session_state.waves = {} # Load from DB or file later check snapshot
 
+from core.sidebar import render_sidebar
+
+# ... (inside config check) ...
+
+# Render Custom Sidebar
+render_sidebar()
+
 st.title(I18nManager.get("home.title", "🛡️ Evidence-Based Decision Support System"))
 st.markdown(I18nManager.get("home.subtitle", """
 > **Paradigm Shift**: From "Measurement" to "Decision Making".
 > This system supports transparent, evidence-based decision making with quality gates.
 """))
 
-st.info(f"Loaded Configuration: {st.session_state.config.customer_name} (v{st.session_state.config.version})")
+st.info(f"{I18nManager.get('home.status_loaded', 'Loaded Configuration')}: {st.session_state.config.customer_name} (v{st.session_state.config.version})")
 
 # Navigation helper (simulated)
-st.markdown("### Quick Navigation")
+st.markdown(f"### {I18nManager.get('home.quick_nav', 'Quick Navigation')}")
 col1, col2, col3 = st.columns(3)
 with col1:
-    if st.button("Go to Decision Board", use_container_width=True):
+    if st.button(I18nManager.get("sidebar.decision_board", "Go to Decision Board"), use_container_width=True):
         st.switch_page("pages/1_Decision_Board.py")
 with col2:
-    if st.button("Input Evidence", use_container_width=True):
+    if st.button(I18nManager.get("sidebar.evidence_input", "Input Evidence"), use_container_width=True):
         st.switch_page("pages/2_Evidence_Input.py")
 with col3:
-    if st.button("Manage Settings", use_container_width=True):
+    if st.button(I18nManager.get("sidebar.settings", "Manage Settings"), use_container_width=True):
         st.switch_page("pages/3_Settings.py")
 
 # Debug info (optional)
