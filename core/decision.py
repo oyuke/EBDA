@@ -13,6 +13,26 @@ class DecisionEngine:
         matched_status = CardStatus.GREEN
         matched_message = "No issues detected."
 
+        # Check for Data Availability First
+        missing_evidence = []
+        if 'drivers' in card_config.required_evidence:
+            for d in card_config.required_evidence['drivers']:
+                if d not in evidence_context: missing_evidence.append(d)
+        
+        if 'kpis' in card_config.required_evidence:
+            for k in card_config.required_evidence['kpis']:
+                if k not in evidence_context: missing_evidence.append(k)
+
+        if missing_evidence:
+            matched_status = CardStatus.UNKNOWN
+            msg = f"Missing Evidence: {', '.join(missing_evidence)}"
+            state.key_evidence.append(msg)
+            state.status = matched_status
+            state.total_priority = 0.0 # Force low priority if unknown
+            return state
+
+        # Normal Rule Evaluation if Data Exists
+
         # Iterate rules
         for rule in card_config.rules:
             try:
