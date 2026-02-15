@@ -4,11 +4,17 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from core.decision import DecisionEngine
+import importlib
+import core.priority
+importlib.reload(core.priority)
 from core.priority import PriorityCalculator
-from core.snapshot import SnapshotManager
-from core.audit import AuditLogger
+
+import core.io
+importlib.reload(core.io)
 from core.io import ConfigLoader
+
+from core.decision import DecisionEngine
+from core.snapshot import SnapshotManager
 from core.visualizer import CausalVisualizer
 import graphviz
 
