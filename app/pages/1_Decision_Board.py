@@ -66,16 +66,7 @@ snapshot_manager = SnapshotManager()
 st.title(f"🚦 {I18nManager.get('sidebar.decision_board', 'Decision Board')}")
 st.markdown("Prioritized list of decision cards based on evidence.")
 
-# Visualize Causal Graph (Transparency)
-with st.expander("🕸️ Decision Architecture (Causal Graph)"):
-    viz = CausalVisualizer(config.drivers, config.decision_cards)
-    try:
-        st.graphviz_chart(viz.render_causal_graph())
-    except Exception as e:
-        st.warning(f"Graphviz not installed or error: {e}")
-
-
-# 2. Compute Evidence Context
+# 2. Compute Evidence Context (Moved Up)
 evidence_context = compute_driver_scores(survey_df, config.drivers)
 # Add KPIs
 if kpi_df is not None:
@@ -84,10 +75,7 @@ if kpi_df is not None:
     evidence_context['avg_overtime_hours'] = get_kpi_latest(kpi_df, 'avg_overtime_hours')
     evidence_context['manager_overtime'] = get_kpi_latest(kpi_df, 'manager_overtime')
 
-st.write("---")
-
-# 3. Evaluate & Rank Cards
-# 3. Evaluate & Rank Cards
+# 3. Evaluate & Rank Cards (Moved Up)
 candidates = []
 
 for card in config.decision_cards:
@@ -129,8 +117,7 @@ for card in config.decision_cards:
 # Batch Ranking Call
 ranked_candidates = priority_calc.rank_candidates(candidates, method=ranking_method)
 
-# Prepare for Display loop
-# We map results back to a structure compatible with display loop
+# Prepare for Display loop & Graph
 card_states = []
 for item in ranked_candidates:
     card = item["_card"]
@@ -146,6 +133,21 @@ for item in ranked_candidates:
     score_res["score"] = item["score"]
     
     card_states.append((card, state, score_res, item["impact"], item["urgency"]))
+
+# Prepare scores for Graph
+card_scores_map = {cs[0].id: cs[1].total_priority for cs in card_states}
+
+# Visualize Causal Graph (Transparency)
+with st.expander("🕸️ Decision Architecture (Causal Graph)"):
+    viz = CausalVisualizer(config.drivers, config.decision_cards)
+    try:
+        # Pass scores to visualizer
+        st.graphviz_chart(viz.render_causal_graph(driver_scores=evidence_context, card_scores=card_scores_map))
+    except Exception as e:
+        st.warning(f"Graphviz not installed or error: {e}")
+
+
+st.write("---")
 
 # 4. Display Loop
 for card, state, score_res, final_impact, final_urgency in card_states:
