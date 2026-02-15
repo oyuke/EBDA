@@ -78,11 +78,20 @@ class LLMClient:
                 
             elif provider == "OpenRouter":
                 import requests
-                headers = {"Authorization": f"Bearer {api_key}"}
-                resp = requests.get("https://openrouter.ai/api/v1/models", headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json().get("data", [])
-                    return sorted([m["id"] for m in data])
+                # OpenRouter modls endpoint is public, but using key might show specific permissions
+                # Try with key if present, else without
+                headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+                try:
+                    resp = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=10)
+                    if resp.status_code == 200:
+                        data = resp.json().get("data", [])
+                        return sorted([m["id"] for m in data])
+                    else:
+                        st.error(f"OpenRouter API Error: {resp.status_code} - {resp.text}")
+                        return []
+                except Exception as ex:
+                     st.error(f"Connection Error: {ex}")
+                     return []
                     
         except Exception as e:
             st.error(f"Failed to fetch models: {e}")
