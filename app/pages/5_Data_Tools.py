@@ -103,7 +103,7 @@ with tab4:
             c_prov, c_model = st.columns(2)
             
             with c_prov:
-                llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"])
+                llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"], key="copilot_provider")
                 api_key = SecurityManager.get_api_key(llm_provider)
                 
                 if api_key:
