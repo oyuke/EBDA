@@ -3,6 +3,9 @@ import pandas as pd
 import json
 import yaml
 from core.converter import DataConverter
+import core.io
+import importlib
+importlib.reload(core.io)
 from core.io import ConfigLoader, PreferenceManager
 from data.models import DecisionCardConfig, DriverConfig
 from core.templates import DataTemplates
