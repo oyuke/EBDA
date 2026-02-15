@@ -60,3 +60,11 @@ if uploaded_kpi:
 # 4. Qualitative Inputs (Interviews) - MVP Placeholder
 st.subheader("3. Interview Notes (Qualitative)")
 st.info("Qualitative input module coming in Phase 2.")
+
+st.markdown("---")
+if st.button("🗑️ Clear All Ingested Data"):
+    if 'survey_data' in st.session_state: del st.session_state['survey_data']
+    if 'kpi_data' in st.session_state: del st.session_state['kpi_data']
+    if 'survey_quality' in st.session_state: del st.session_state['survey_quality']
+    st.success("All data cleared from session.")
+    st.rerun()
