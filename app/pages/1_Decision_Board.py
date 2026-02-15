@@ -43,6 +43,10 @@ survey_df = st.session_state.get('survey_data')
 kpi_df = st.session_state.get('kpi_data')
 quality_penalty = st.session_state.get('survey_quality', {}).get('penalty', 0.0)
 
+# Sidebar Config
+st.sidebar.markdown("### Settings")
+ranking_method = st.sidebar.radio("Ranking Algorithm", ["SAW (Transparent)", "WASPAS (Robust)"], index=0)
+
 # Engines
 decision_engine = DecisionEngine()
 priority_calc = PriorityCalculator(config.priority_weights)
@@ -107,7 +111,10 @@ for card in config.decision_cards:
             urgency = sim_urgency
             st.caption("✨ Using simulated values")
     
-    score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
+    if "WASPAS" in ranking_method:
+        score_res = priority_calc.calculate_waspas(impact, urgency, uncertainty)
+    else:
+        score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
     
     state.total_priority = score_res["score"]
     state.confidence_penalty = uncertainty
@@ -180,9 +187,14 @@ for card, state, score_res, final_impact, final_urgency in card_states:
                 c3.metric("Uncertainty (Penalty)", f"{uncertainty:.2f}", help="Derived from Data Q-Gate", delta_color="inverse")
                 
                 st.write("---")
-                st.write("**Terms:**")
+                if "WASPAS" in ranking_method:
+                    st.write("**WASPAS Components:**")
+                    comps = score_res["components"]
+                    st.latex(f"Q = 0.5 \\times {comps['saw_score']:.2f} (SAW) + 0.5 \\times {comps['wpm_score']:.2f} (WPM)")
+                    
+                st.write("**SAW Breakdown:**")
                 breakdown = score_res["breakdown"]
-                st.latex(f"{score_res['score']:.2f} = {breakdown['impact_term']:.2f} + {breakdown['urgency_term']:.2f} - {abs(breakdown['uncertainty_term']):.2f}")
+                st.latex(f"{breakdown['impact_term']:.2f} + {breakdown['urgency_term']:.2f} - {abs(breakdown['uncertainty_term']):.2f}")
                 
                 if quality_penalty > 0.1:
                     st.warning(f"⚠️ Confidence Penalty applied: -{quality_penalty:.2f} due to data quality issues.")
