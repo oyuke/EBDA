@@ -276,7 +276,7 @@ with tab6:
             cols[idx].markdown(f"- **{s}**: {'✅ Active' if active else '❌ Missing'}")
 
     else:
-        st.warning("No configuration loaded.")
+        st.info("No keys stored yet.")
 
 # --- Tab 5: AI Generator ---
 with tab5:
