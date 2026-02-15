@@ -45,7 +45,7 @@ quality_penalty = st.session_state.get('survey_quality', {}).get('penalty', 0.0)
 
 # Sidebar Config
 st.sidebar.markdown("### Settings")
-ranking_method = st.sidebar.radio("Ranking Algorithm", ["SAW (Transparent)", "WASPAS (Robust)"], index=0)
+ranking_method = st.sidebar.radio("Ranking Algorithm", ["SAW (Transparent)", "WASPAS (Robust)", "TOPSIS (Relative)", "Composite (Ensemble)"], index=0)
 
 # Engines
 decision_engine = DecisionEngine()
@@ -77,52 +77,65 @@ if kpi_df is not None:
 st.write("---")
 
 # 3. Evaluate & Rank Cards
-card_states = []
+# 3. Evaluate & Rank Cards
+candidates = []
+
 for card in config.decision_cards:
     # Rule Evaluation
     state = decision_engine.evaluate_card(card, evidence_context)
     
-    # In real app, Impact comes from n-count or gap size.
-    # Logic update: Use actual evidence if available, otherwise default to neutral to avoid 'fake' feeling
+    # Base Values Logic
     impact = 0.5 # Default neutral
     urgency = 0.5
     
     # Simple Logic for Impact Transparency
-    if state.status == "RED":
-        impact = 0.9
-    elif state.status == "YELLOW":
-        impact = 0.6
+    if state.status == "RED": impact = 0.9
+    elif state.status == "YELLOW": impact = 0.6
     
     # Simple Logic for Urgency
-    if "turnover" in str(state.key_evidence):
-        urgency = 0.9
-    elif "overtime" in str(state.key_evidence):
-        urgency = 0.7
+    if "turnover" in str(state.key_evidence): urgency = 0.9
+    elif "overtime" in str(state.key_evidence): urgency = 0.7
 
     # Use global quality penalty as uncertainty
     uncertainty = quality_penalty
-    
-    # --- Simulation Mode ---
-    with st.expander(f"🎛️ What-If Simulation ({card.id})"):
-        sim_impact = st.slider("Simulate Impact", 0.0, 1.0, impact, 0.1, key=f"sim_imp_{card.id}")
-        sim_urgency = st.slider("Simulate Urgency", 0.0, 1.0, urgency, 0.1, key=f"sim_urg_{card.id}")
-        if sim_impact != impact or sim_urgency != urgency:
-            impact = sim_impact
-            urgency = sim_urgency
-            st.caption("✨ Using simulated values")
-    
-    if "WASPAS" in ranking_method:
-        score_res = priority_calc.calculate_waspas(impact, urgency, uncertainty)
-    else:
-        score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
-    
-    state.total_priority = score_res["score"]
-    state.confidence_penalty = uncertainty
-    # Store for display
-    card_states.append((card, state, score_res, impact, urgency))
 
-# Sort by Priority Descending
-card_states.sort(key=lambda x: x[1].total_priority, reverse=True)
+    # Check for Simulation Overrides in Session State
+    sim_imp_key = f"sim_imp_{card.id}"
+    sim_urg_key = f"sim_urg_{card.id}"
+    
+    if sim_imp_key in st.session_state: impact = st.session_state[sim_imp_key]
+    if sim_urg_key in st.session_state: urgency = st.session_state[sim_urg_key]
+
+    # Collect for Batch Ranking
+    candidates.append({
+        "id": card.id,
+        "impact": impact,
+        "urgency": urgency,
+        "uncertainty": uncertainty,
+        "_card": card,
+        "_state": state
+    })
+
+# Batch Ranking Call
+ranked_candidates = priority_calc.rank_candidates(candidates, method=ranking_method)
+
+# Prepare for Display loop
+# We map results back to a structure compatible with display loop
+card_states = []
+for item in ranked_candidates:
+    card = item["_card"]
+    state = item["_state"]
+    # Update state with calculated priority
+    state.total_priority = item["score"]
+    state.confidence_penalty = item["uncertainty"]
+    
+    # Pass details for rendering
+    # storing (card, state, score_res, final_impact, final_urgency)
+    # score_res is essentially item['_details'] + score
+    score_res = item.get("_details", {"score": item["score"]})
+    score_res["score"] = item["score"]
+    
+    card_states.append((card, state, score_res, item["impact"], item["urgency"]))
 
 # 4. Display Loop
 for card, state, score_res, final_impact, final_urgency in card_states:
@@ -178,24 +191,65 @@ for card, state, score_res, final_impact, final_urgency in card_states:
                     st.info("No recommendation needed (Green).")
 
             with tab3:
-                st.subheader("White-box Score Calculation")
-                st.markdown(f"**Formula**: `Priority = (Impact × {config.priority_weights['impact']}) + (Urgency × {config.priority_weights['urgency']}) - (Uncertainty × {config.priority_weights['uncertainty']})`")
+                st.subheader("Scoring & What-If Simulation")
+                
+                # --- Simulation Controls ---
+                col_s1, col_s2, col_s3 = st.columns([2, 5, 2])
+                with col_s2:
+                    st.caption("Adjust sliders to simulate different scenarios:")
+                    s_imp = st.slider(f"Impact ({card.id})", 0.0, 1.0, float(final_impact), 0.1, key=f"sim_imp_{card.id}")
+                    s_urg = st.slider(f"Urgency ({card.id})", 0.0, 1.0, float(final_urgency), 0.1, key=f"sim_urg_{card.id}")
+                    
+                    is_simulated = (f"sim_imp_{card.id}" in st.session_state) or (f"sim_urg_{card.id}" in st.session_state)
+                    if is_simulated:
+                        if st.button("Revert to Actuals", key=f"reset_{card.id}"):
+                            if f"sim_imp_{card.id}" in st.session_state: del st.session_state[f"sim_imp_{card.id}"]
+                            if f"sim_urg_{card.id}" in st.session_state: del st.session_state[f"sim_urg_{card.id}"]
+                            st.rerun()
+
+                st.markdown("---")
+                
+                st.subheader("Calculation Details")
+                st.markdown(f"**Method**: {ranking_method}")
                 
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Impact Input", f"{final_impact:.2f}", help="Derived from Gap Size / N-count (or Simulated)")
                 c2.metric("Urgency Input", f"{final_urgency:.2f}", help="Derived from Trend / Variance (or Simulated)")
-                c3.metric("Uncertainty (Penalty)", f"{uncertainty:.2f}", help="Derived from Data Q-Gate", delta_color="inverse")
+                c3.metric("Uncertainty (Penalty)", f"{state.confidence_penalty:.2f}", help="Derived from Data Q-Gate", delta_color="inverse")
                 
                 st.write("---")
+                st.write("---")
                 if "WASPAS" in ranking_method and "components" in score_res:
-                    st.write("**WASPAS Components:**")
+                    st.write("**Components:**")
                     comps = score_res["components"]
                     st.latex(f"Q = 0.5 \\times {comps['saw_score']:.2f} (SAW) + 0.5 \\times {comps['wpm_score']:.2f} (WPM)")
-                elif "WASPAS" in ranking_method:
-                     st.warning("⚠️ High Load: WASPAS details unavailable (using provisional score).")
-                st.write("**SAW Breakdown:**")
-                breakdown = score_res["breakdown"]
-                st.latex(f"{breakdown['impact_term']:.2f} + {breakdown['urgency_term']:.2f} - {abs(breakdown['uncertainty_term']):.2f}")
+                
+                elif "TOPSIS" in ranking_method:
+                    st.write("**TOPSIS Distances:**")
+                    s_pos = score_res.get("S+", 0)
+                    s_neg = score_res.get("S-", 0)
+                    st.markdown(f"- Distance to Ideal ($S^+$): `{s_pos:.4f}`")
+                    st.markdown(f"- Distance to Anti-Ideal ($S^-$): `{s_neg:.4f}`")
+                    if (s_pos + s_neg) > 0:
+                        st.latex(f"Score = \\frac{{S^-}}{{S^+ + S^-}} = \\frac{{{s_neg:.4f}}}{{{s_pos+s_neg:.4f}}}")
+                
+                elif "Composite" in ranking_method:
+                    st.write("**Ensemble Rankings:**")
+                    ranks = score_res.get("ranks", {})
+                    cols_r = st.columns(3)
+                    cols_r[0].metric("SAW Rank", ranks.get("SAW", "-"))
+                    cols_r[1].metric("WASPAS Rank", ranks.get("WASPAS", "-"))
+                    cols_r[2].metric("TOPSIS Rank", ranks.get("TOPSIS", "-"))
+                    st.caption(f"Average Rank: {score_res.get('avg_rank', 0):.2f}")
+                
+                elif "breakdown" in score_res:
+                    st.write("**Breakdown:**")
+                    breakdown = score_res.get("breakdown", {})
+                    if breakdown:
+                         term_imp = breakdown.get("impact_term", 0)
+                         term_urg = breakdown.get("urgency_term", 0)
+                         term_unc = breakdown.get("uncertainty_term", 0)
+                         st.latex(f"{term_imp:.2f} + {term_urg:.2f} - {abs(term_unc):.2f}")
                 
                 if quality_penalty > 0.1:
                     st.warning(f"⚠️ Confidence Penalty applied: -{quality_penalty:.2f} due to data quality issues.")
