@@ -46,12 +46,20 @@ class LLMClient:
                     default_headers=extra_headers
                 )
                 
-                response = client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
+                
+                messages = []
+                # Google/Gemma models on OpenRouter often reject 'system' role
+                if self.provider == "OpenRouter" and ("google" in self.model_name.lower() or "gemma" in self.model_name.lower()):
+                    messages = [{"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"}]
+                else:
+                    messages = [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
-                    ],
+                    ]
+
+                response = client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
                     temperature=0.7
                 )
                 return response.choices[0].message.content
