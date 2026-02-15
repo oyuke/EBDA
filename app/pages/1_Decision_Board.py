@@ -70,6 +70,16 @@ def on_revert_sim(card_id, imp_key, urg_key):
             StatePersistence.save(st.session_state.config)
 
 # 1. Initialization
+# Schema Migration / Validation
+if 'config' in st.session_state:
+    try:
+        # Check if new fields exist on the first card
+        if st.session_state.config.decision_cards and not hasattr(st.session_state.config.decision_cards[0], 'simulation_impact'):
+             raise AttributeError("Old schema detected")
+    except AttributeError:
+        st.toast("Updating configuration schema...", icon="🔄")
+        del st.session_state['config']
+
 if 'config' not in st.session_state:
     # Try persistent state first
     saved_config = StatePersistence.load()
