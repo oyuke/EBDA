@@ -16,6 +16,8 @@ from core.io import ConfigLoader
 from core.decision import DecisionEngine
 from core.snapshot import SnapshotManager
 from core.audit import AuditLogger
+import core.visualizer
+importlib.reload(core.visualizer)
 from core.visualizer import CausalVisualizer
 from core.sidebar import render_sidebar
 from core.i18n import I18nManager
