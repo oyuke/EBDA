@@ -1,5 +1,9 @@
 import streamlit as st
 import pandas as pd
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from core.decision import DecisionEngine
 from core.priority import PriorityCalculator
 from core.snapshot import SnapshotManager
@@ -140,7 +144,7 @@ for card, state, score_res in card_states:
                 if quality_penalty > 0.1:
                     st.warning(f"⚠️ Confidence Penalty applied: -{quality_penalty:.2f} due to data quality issues.")
 
-        st.json(state.dict(include={'status','total_priority','confidence_penalty'})) # Mini debug
+        st.json(state.model_dump(include={'status','total_priority','confidence_penalty'})) # Mini debug
         st.divider()
 
 # 5. Freeze Action

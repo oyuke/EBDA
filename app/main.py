@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
 import os
+import sys
+
+# Add project root to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from core.io import ConfigLoader
 from core.quality import QualityGateway
 from core.decision import DecisionEngine
