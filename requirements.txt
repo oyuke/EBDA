@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+pydantic
+PyYAML
+python-docx
+reportlab
+pytest
+openpyxl
+plotly

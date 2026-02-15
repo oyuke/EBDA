@@ -1,0 +1,88 @@
+version: "1.0"
+customer_name: "Default Customer"
+
+# Priority Weights for SAW/WASPAS
+priority_weights:
+  impact: 1.0
+  urgency: 1.5
+  uncertainty: 1.0  # Acts as a penalty factor
+
+# Thresholds for Quality Gates
+quality_gates:
+  min_n_count: 5
+  max_missing_ratio: 0.2
+  min_cronbach_alpha: 0.7
+
+# Decision Cards Definitions
+decision_cards:
+  - id: "D001"
+    title: "若手の離職を防ぐべきか (Should we prevent junior turnover?)"
+    decision_question: "直近1年以内の入社者の離職リスクに対策を講じるか？"
+    stakeholders: ["HR Director", "Division Managers"]
+    required_evidence:
+      drivers: ["psychological_safety", "manager_support", "comp_satisfaction"]
+      kpis: ["turnover_rate_junior", "avg_overtime_hours"]
+    rules:
+      - condition: "psychological_safety < 3.2"
+        status: "RED"
+        message: "心理的安全性が危険域(3.2未満)"
+      - condition: "turnover_rate_junior > 0.15"
+        status: "RED"
+        message: "若手離職率が高い(15%超)"
+      - condition: "manager_support < 3.5"
+        status: "YELLOW"
+        message: "上司支援が不足傾向"
+    recommendation_templates:
+      - id: "R_1on1_Review"
+        action: "1on1制度の見直しと頻度増加"
+        preconditions: "Manager工数が確保できること"
+        risks: "現場マネジャーの負担増による逆効果"
+        success_metrics: "3ヶ月後のpsychological_safetyスコア"
+
+  - id: "D002"
+    title: "ミドルマネジメントの負荷軽減を行うべきか (Should we reduce middle management load?)"
+    decision_question: "プレイングマネジャーの業務量を削減し、マネジメントに集中させるか？"
+    stakeholders: ["CEO", "HR Director"]
+    required_evidence:
+      drivers: ["role_ambiguity", "workload_feeling"]
+      kpis: ["avg_span_of_control", "manager_overtime"]
+    rules:
+      - condition: "workload_feeling < 2.5"  # 1=High load, 5=Low load
+        status: "RED"
+        message: "業務負荷感が限界に近い"
+      - condition: "manager_overtime > 45"
+        status: "RED"
+        message: "管理職残業が45H超過"
+    recommendation_templates:
+      - id: "R_Delegate_Authority"
+        action: "権限委譲と業務の棚卸し"
+        preconditions: "メンバーのスキルレベルが一定以上"
+        risks: "クオリティ低下の可能性"
+        success_metrics: "管理職残業時間の減少"
+
+# Drivers (Survey Questions mapping)
+drivers:
+  - id: "psychological_safety"
+    label: "心理的安全性"
+    survey_items: ["Q1", "Q2", "Q3"] # Map to survey column names
+    range: [1, 5]
+
+  - id: "manager_support"
+    label: "上司支援"
+    survey_items: ["Q4", "Q5"]
+    range: [1, 5]
+
+  - id: "comp_satisfaction"
+    label: "給与満足度"
+    survey_items: ["Q6"]
+    range: [1, 5]
+    
+  - id: "role_ambiguity"
+    label: "役割の曖昧さ"
+    survey_items: ["Q7", "Q8"]
+    range: [1, 5]
+
+  - id: "workload_feeling"
+    label: "業務負荷感"
+    survey_items: ["Q9"]
+    range: [1, 5]
