@@ -11,6 +11,7 @@ from core.i18n import I18nManager
 from core.quality import QualityGateway
 from core.decision import DecisionEngine
 from core.priority import PriorityCalculator
+from core.sidebar import render_sidebar
 
 st.set_page_config(
     page_title="Evidence-Based DSS",
@@ -18,6 +19,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Render Sidebar Early
+render_sidebar()
 
 # Initialize Language Session State
 if "language" not in st.session_state:
@@ -63,12 +67,7 @@ else:
 if 'waves' not in st.session_state:
     st.session_state.waves = {} # Load from DB or file later check snapshot
 
-from core.sidebar import render_sidebar
 
-# ... (inside config check) ...
-
-# Render Custom Sidebar
-render_sidebar()
 
 st.title(I18nManager.get("home.title", "🛡️ Evidence-Based Decision Support System"))
 st.markdown(I18nManager.get("home.subtitle", """
