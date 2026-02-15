@@ -58,6 +58,78 @@ class QualityGateway:
         # Cap penalty at 1.0
         return min(penalty_score, 1.0), results
 
+    def _calculate_cronbach_alpha(self, df: pd.DataFrame) -> float:
+        """
+        Calculate Cronbach's alpha manually.
+        alpha = (k / (k-1)) * (1 - (sum(var_items) / var_total))
+        """
+        item_scores = df
+        k = item_scores.shape[1]
+        
+        if k < 2:
+            return 0.0 # Cannot calculate correlation for <2 items
+            
+        # Variance of each item
+        var_items = item_scores.var(ddof=1)
+        sum_var_items = var_items.sum()
+        
+        # Variance of total score
+        total_scores = item_scores.sum(axis=1)
+        var_total = total_scores.var(ddof=1)
+        
+        if var_total == 0:
+            return 0.0
+            
+        alpha = (k / (k - 1)) * (1 - (sum_var_items / var_total))
+        return alpha
+
+    def check_cronbach_alpha(self, df: pd.DataFrame, drivers: List[Any]) -> Tuple[float, List[QualityCheckResult]]:
+        """
+        Check alpha for each driver with multiple items.
+        Returns penalty accumulator.
+        """
+        results = []
+        penalty = 0.0
+        min_alpha = 0.7 # Hardcoded default if not in config
+        
+        for driver in drivers:
+            items = driver.survey_items
+            if len(items) < 2:
+                # Need at least 2 items to check consistency
+                continue
+                
+            cols_present = [c for c in items if c in df.columns]
+            if len(cols_present) < 2:
+                continue
+            
+            sub_df = df[cols_present].dropna()
+            if len(sub_df) < 5: 
+                # Too few samples to calculate alpha reliably
+                continue
+                
+            alpha = self._calculate_cronbach_alpha(sub_df)
+            
+            if alpha < min_alpha:
+                res = QualityCheckResult(
+                    name=f"Reliability ({driver.label})",
+                    passed=False,
+                    status="warn",
+                    message=f"Cronbach's alpha {alpha:.2f} < {min_alpha} for '{driver.label}' (Inconsistent responses).",
+                    details={"alpha": alpha, "driver": driver.id}
+                )
+                penalty += 0.1 # Mild penalty per unreliable driver
+                results.append(res)
+            else:
+                results.append(QualityCheckResult(
+                    name=f"Reliability ({driver.label})",
+                    passed=True,
+                    status="pass",
+                    message=f"Alpha {alpha:.2f} OK",
+                    details={"alpha": alpha}
+                ))
+        
+        return penalty, results
+
     def check_kpi_series(self, series: List[float]) -> Tuple[float, List[QualityCheckResult]]:
         # Simple check for KPIs
         results = []

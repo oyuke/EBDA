@@ -30,6 +30,14 @@ if uploaded_survey:
     # Run Quality Check
     penalty, checks = gateway.check_survey_data(df_survey)
     
+    # Check Cronbach's Alpha for drivers
+    drivers = st.session_state.config.drivers
+    alpha_penalty, alpha_checks = gateway.check_cronbach_alpha(df_survey, drivers)
+    
+    penalty += alpha_penalty
+    penalty = min(penalty, 1.0) # Cap
+    checks.extend(alpha_checks)
+    
     # Display Checks
     col1, col2 = st.columns([1, 3])
     with col1:
