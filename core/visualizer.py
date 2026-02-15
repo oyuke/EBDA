@@ -8,14 +8,31 @@ class CausalVisualizer:
         self.drivers = {d.id: d.label for d in drivers}
         self.cards = cards
 
-    def render_causal_graph(self, driver_scores: Dict[str, float] = None, card_scores: Dict[str, float] = None):
+    def render_causal_graph(self, driver_scores: Dict[str, float] = None, card_scores: Dict[str, float] = None, target_card_id: str = None):
         dot = graphviz.Digraph(comment='Causal Model')
         dot.attr(rankdir='LR')
         
+        # Determine scope
+        cards_to_render = self.cards
+        drivers_to_render = self.drivers # ID -> label
+        
+        if target_card_id:
+            # Filter cards
+            cards_to_render = [c for c in self.cards if c.id == target_card_id]
+            
+            # Filter drivers to only those relevant to the target card(s)
+            # Gather all required drivers from selected cards
+            req_d_ids = set()
+            for c in cards_to_render:
+                if c.required_evidence:
+                    req_d_ids.update(c.required_evidence.get('drivers', []))
+            
+            drivers_to_render = {d_id: l for d_id, l in self.drivers.items() if d_id in req_d_ids}
+
         # Nodes: Drivers (Evidence)
         with dot.subgraph(name='cluster_evidence') as c:
             c.attr(label='Evidence Layer', color='lightgrey')
-            for d_id, label in self.drivers.items():
+            for d_id, label in drivers_to_render.items():
                 display_label = label
                 fill_color = 'lightblue'
                 
@@ -32,7 +49,7 @@ class CausalVisualizer:
         # Nodes: Decision Cards
         with dot.subgraph(name='cluster_decision') as c:
             c.attr(label='Decision Layer', color='lightgrey')
-            for card in self.cards:
+            for card in cards_to_render:
                 display_label = card.title
                 fill_color = 'lightyellow'
                 
@@ -46,11 +63,11 @@ class CausalVisualizer:
                 c.node(card.id, display_label, shape='box', style='filled', color=fill_color)
 
         # Edges
-        for card in self.cards:
+        for card in cards_to_render:
             # Connect drivers to card
             if card.required_evidence and 'drivers' in card.required_evidence:
                 for d_id in card.required_evidence['drivers']:
-                    if d_id in self.drivers:
+                    if d_id in drivers_to_render:
                         edge_color = 'black'
                         edge_label = "" # No explicit coefficient in Rule-based model
                         

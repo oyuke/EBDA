@@ -134,7 +134,7 @@ for card, state, score_res, final_impact, final_urgency in card_states:
 
         # Details Expander
         with st.expander("🔍 See Evidence & Recommendation", expanded=(state.status=="RED")):
-            tab1, tab2, tab3 = st.tabs(["Evidence", "Recommendation", "Scoring"])
+            tab1, tab2, tab3, tab4 = st.tabs(["Evidence", "Recommendation", "Scoring", "Causal Graph"])
             
             with tab1:
                 st.write("**Key Evidence Triggered:**")
@@ -232,6 +232,20 @@ for card, state, score_res, final_impact, final_urgency in card_states:
                 
                 if quality_penalty > 0.1:
                     st.warning(f"⚠️ Confidence Penalty applied: -{quality_penalty:.2f} due to data quality issues.")
+
+            with tab4:
+                st.subheader("Decision Architecture")
+                st.caption("Contextual Causal Graph for this Decision")
+                try:
+                    # Renders focused view for specific card
+                    mini_dot = viz.render_causal_graph(
+                        driver_scores=evidence_context, 
+                        card_scores=card_scores_map,
+                        target_card_id=card.id
+                    )
+                    st.graphviz_chart(mini_dot)
+                except Exception as e:
+                    st.error(f"Visualization Error: {e}")
 
         st.json(state.model_dump(include={'status','total_priority','confidence_penalty'})) # Mini debug
         st.divider()
