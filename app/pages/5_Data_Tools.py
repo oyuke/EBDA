@@ -172,18 +172,26 @@ with tab4:
                 if st.button("Append Suggestion"):
                     import io
                     try:
-                        new_rows = pd.read_csv(io.StringIO(st.session_state['driver_suggestion']), header=None)
-                        # Align columns
-                        new_rows.columns = df_drivers_current.columns
-                        combined = pd.concat([df_drivers_current, new_rows], ignore_index=True)
-                        # Update session config directly via wrapper? 
-                        # Actual update happens when "Apply" is clicked below on main editor, 
-                        # but st.data_editor state is tricky. 
-                        # Workaround: Show just the text to copy-paste or specialized append logic.
-                        # For MVP: Just verify parsing.
-                        st.info("Copy the CSV above and paste into the editor, or use the 'Append' button below (Experimental).")
+                        # Clean markdown if present
+                        raw_csv = st.session_state['driver_suggestion'].replace("```csv", "").replace("```", "").strip()
+                        
+                        new_rows = pd.read_csv(io.StringIO(raw_csv), header=None)
+                        # Expect NO header in suggestion as per prompt, but if columns mismatch...
+                        if len(new_rows.columns) == len(df_drivers_current.columns):
+                            new_rows.columns = df_drivers_current.columns
+                            combined = pd.concat([df_drivers_current, new_rows], ignore_index=True)
+                            
+                            # Update Config
+                            new_drivers_obj = DataConverter.csv_to_drivers(combined)
+                            st.session_state.config.drivers = new_drivers_obj
+                            
+                            del st.session_state['driver_suggestion']
+                            st.success(f"Appended {len(new_rows)} drivers!")
+                            st.rerun()
+                        else:
+                            st.error(f"Column count mismatch. Expected {len(df_drivers_current.columns)}, Got {len(new_rows.columns)}")
                     except Exception as e:
-                        st.error(f"Error: {e}")
+                        st.error(f"Error appending: {e}")
 
         if st.button("Apply Driver Changes"):
             try:
@@ -217,6 +225,27 @@ with tab4:
             if 'card_suggestion' in st.session_state:
                 st.caption("Suggestion:")
                 st.code(st.session_state['card_suggestion'], language="csv")
+                
+                if st.button("Append Cards"):
+                    import io
+                    try:
+                        raw_csv = st.session_state['card_suggestion'].replace("```csv", "").replace("```", "").strip()
+                        new_rows = pd.read_csv(io.StringIO(raw_csv), header=None)
+                        
+                        if len(new_rows.columns) == len(df_cards_current.columns):
+                            new_rows.columns = df_cards_current.columns
+                            combined = pd.concat([df_cards_current, new_rows], ignore_index=True)
+                            
+                            new_cards_obj = DataConverter.csv_to_decision_card(combined)
+                            st.session_state.config.decision_cards = new_cards_obj
+                            
+                            del st.session_state['card_suggestion']
+                            st.success(f"Appended {len(new_rows)} cards!")
+                            st.rerun()
+                        else:
+                            st.error(f"Mismatch: Expected {len(df_cards_current.columns)} cols, Got {len(new_rows.columns)}")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
         if st.button("Apply Card Changes"):
             try:
