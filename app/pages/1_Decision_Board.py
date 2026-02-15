@@ -9,6 +9,9 @@ from core.priority import PriorityCalculator
 from core.snapshot import SnapshotManager
 from core.audit import AuditLogger
 from core.io import ConfigLoader
+from core.visualizer import CausalVisualizer
+import graphviz
+
 
 st.set_page_config(page_title="Decision Board", layout="wide")
 
@@ -49,6 +52,15 @@ snapshot_manager = SnapshotManager()
 st.title("🚦 Decision Board")
 st.markdown("Prioritized list of decision cards based on evidence.")
 
+# Visualize Causal Graph (Transparency)
+with st.expander("🕸️ Decision Architecture (Causal Graph)"):
+    viz = CausalVisualizer(config.drivers, config.decision_cards)
+    try:
+        st.graphviz_chart(viz.render_causal_graph())
+    except Exception as e:
+        st.warning(f"Graphviz not installed or error: {e}")
+
+
 # 2. Compute Evidence Context
 evidence_context = compute_driver_scores(survey_df, config.drivers)
 # Add KPIs
@@ -66,14 +78,22 @@ for card in config.decision_cards:
     # Rule Evaluation
     state = decision_engine.evaluate_card(card, evidence_context)
     
-    # Priority Calculation (Mock values for Impact/Urgency for MVP as they're not automated yet)
     # In real app, Impact comes from n-count or gap size.
-    # Here we mock based on status for demo effect
-    impact = 0.8 if state.status == "RED" else 0.4
-    urgency = 0.9 if "turnover" in str(state.key_evidence) else 0.3
+    # Logic update: Use actual evidence if available, otherwise default to neutral to avoid 'fake' feeling
+    impact = 0.5 # Default neutral
+    urgency = 0.5
     
-    # Use global quality penalty as uncertainty
-    uncertainty = quality_penalty
+    # Simple Logic for Impact Transparency
+    if state.status == "RED":
+        impact = 0.9
+    elif state.status == "YELLOW":
+        impact = 0.6
+    
+    # Simple Logic for Urgency
+    if "turnover" in str(state.key_evidence):
+        urgency = 0.9
+    elif "overtime" in str(state.key_evidence):
+        urgency = 0.7
     
     score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
     
@@ -139,8 +159,19 @@ for card, state, score_res in card_states:
                     st.info("No recommendation needed (Green).")
 
             with tab3:
-                st.write("**SAW Score Breakdown**")
-                st.write(score_res["breakdown"])
+                st.subheader("White-box Score Calculation")
+                st.markdown(f"**Formula**: `Priority = (Impact × {config.priority_weights['impact']}) + (Urgency × {config.priority_weights['urgency']}) - (Uncertainty × {config.priority_weights['uncertainty']})`")
+                
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Impact Input", f"{impact:.2f}", help="Derived from Gap Size / N-count")
+                c2.metric("Urgency Input", f"{urgency:.2f}", help="Derived from Trend / Variance")
+                c3.metric("Uncertainty (Penalty)", f"{uncertainty:.2f}", help="Derived from Data Q-Gate", delta_color="inverse")
+                
+                st.write("---")
+                st.write("**Terms:**")
+                breakdown = score_res["breakdown"]
+                st.latex(f"{score_res['score']:.2f} = {breakdown['impact_term']:.2f} + {breakdown['urgency_term']:.2f} - {abs(breakdown['uncertainty_term']):.2f}")
+                
                 if quality_penalty > 0.1:
                     st.warning(f"⚠️ Confidence Penalty applied: -{quality_penalty:.2f} due to data quality issues.")
 

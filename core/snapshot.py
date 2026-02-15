@@ -27,7 +27,7 @@ class SnapshotManager:
         # Save to file
         file_path = os.path.join(self.output_dir, f"{snap_id}.json")
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(snapshot.json(indent=2, default=str)) # Use pydantic json dump
+            f.write(snapshot.model_dump_json(indent=2)) # Use pydantic json dump
 
         return snapshot
 
