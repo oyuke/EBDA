@@ -44,10 +44,43 @@ ranking_method = st.session_state.get("ranking_method", ranking_method)
 # Engines
 
 
+from core.state_manager import StatePersistence
+
+def on_sim_change(card_id, imp_key, urg_key):
+    # Persist simulation changes to file immediately
+    if 'config' in st.session_state:
+        card = next((c for c in st.session_state.config.decision_cards if c.id == card_id), None)
+        if card:
+            # Update object state from widget state
+            if imp_key in st.session_state:
+                 card.simulation_impact = st.session_state[imp_key]
+            if urg_key in st.session_state:
+                 card.simulation_urgency = st.session_state[urg_key]
+            StatePersistence.save(st.session_state.config)
+
+def on_revert_sim(card_id, imp_key, urg_key):
+    if 'config' in st.session_state:
+        card = next((c for c in st.session_state.config.decision_cards if c.id == card_id), None)
+        if card:
+            card.simulation_impact = None
+            card.simulation_urgency = None
+            # Clear session state keys to refresh sliders to default
+            if imp_key in st.session_state: del st.session_state[imp_key]
+            if urg_key in st.session_state: del st.session_state[urg_key]
+            StatePersistence.save(st.session_state.config)
+
 # 1. Initialization
 if 'config' not in st.session_state:
-    loader = ConfigLoader("configs/customer_default.yaml")
-    st.session_state.config = loader.load_config()
+    # Try persistent state first
+    saved_config = StatePersistence.load()
+    if saved_config:
+        st.session_state.config = saved_config
+        st.toast("Restored previous session state.", icon="💾")
+    else:
+        loader = ConfigLoader("configs/customer_default.yaml")
+        st.session_state.config = loader.load_config()
+        # Initial save
+        StatePersistence.save(st.session_state.config)
 
 config = st.session_state.config
 survey_df = st.session_state.get('survey_data')
@@ -154,39 +187,71 @@ for card, state, score_res, final_impact, final_urgency in card_states:
                     st.info(f"✅ **Success Metrics**: {rec.success_metrics}")
                     
                     # Implementation of Cooperative DSS
+                    # Implementation of Cooperative DSS (Persistent)
                     st.markdown("---")
+                    
+                    if card.manual_override_status:
+                        st.info(f"Human Audit Status: **{card.manual_override_status}**")
+                        if card.manual_override_reason:
+                            st.caption(f"Reason: {card.manual_override_reason}")
+                    
                     col_act1, col_act2 = st.columns(2)
                     with col_act1:
                         if st.button(f"Approve Draft ({card.id})"):
-                            st.success("Approved! Sent to Action Plan.")
+                            card.manual_override_status = "APPROVED"
+                            card.manual_override_reason = "Routine Approval"
+                            StatePersistence.save(st.session_state.config)
                             audit_logger.log_action(card.id, "latest", "Approve", "Routine approval")
+                            st.success("Approved! Saved.")
+                            st.rerun()
+                            
                     with col_act2:
-                        reason = st.text_input("Override Reason", key=f"reason_{card.id}")
+                        reason = st.text_input("Override Reason", key=f"reason_{card.id}", value=card.manual_override_reason or "")
                         if st.button(f"Override / Reject ({card.id})"):
                             if not reason:
                                 st.error("Reason required for override.")
                             else:
-                                st.warning("Overridden by human.")
+                                card.manual_override_status = "REJECTED"
+                                card.manual_override_reason = reason
+                                StatePersistence.save(st.session_state.config)
                                 audit_logger.log_action(card.id, "latest", "Override", reason)
-                else:
+                                st.warning("Overridden! Saved.")
+                                st.rerun()
                     st.info("No recommendation needed (Green).")
 
             with tab3:
                 st.subheader("Scoring & What-If Simulation")
                 
-                # --- Simulation Controls ---
+                # --- Simulation Controls (Persistent) ---
                 col_s1, col_s2, col_s3 = st.columns([2, 5, 2])
                 with col_s2:
-                    st.caption("Adjust sliders to simulate different scenarios:")
-                    s_imp = st.slider(f"Impact ({card.id})", 0.0, 1.0, float(final_impact), 0.1, key=f"sim_imp_{card.id}")
-                    s_urg = st.slider(f"Urgency ({card.id})", 0.0, 1.0, float(final_urgency), 0.1, key=f"sim_urg_{card.id}")
+                    st.caption("Adjust sliders to simulate different scenarios (Auto-saved):")
+                    sim_imp_key = f"sim_imp_{card.id}"
+                    sim_urg_key = f"sim_urg_{card.id}"
                     
-                    is_simulated = (f"sim_imp_{card.id}" in st.session_state) or (f"sim_urg_{card.id}" in st.session_state)
+                    st.slider(
+                        f"Impact ({card.id})", 0.0, 1.0, float(final_impact), 0.05, 
+                        key=sim_imp_key, 
+                        on_change=on_sim_change, 
+                        args=(card.id, sim_imp_key, sim_urg_key)
+                    )
+                    st.slider(
+                        f"Urgency ({card.id})", 0.0, 1.0, float(final_urgency), 0.05,
+                        key=sim_urg_key,
+                        on_change=on_sim_change,
+                        args=(card.id, sim_imp_key, sim_urg_key)
+                    )
+                    
+                    # Revert Logic
+                    is_simulated = (card.simulation_impact is not None) or (card.simulation_urgency is not None)
                     if is_simulated:
-                        if st.button("Revert to Actuals", key=f"reset_{card.id}"):
-                            if f"sim_imp_{card.id}" in st.session_state: del st.session_state[f"sim_imp_{card.id}"]
-                            if f"sim_urg_{card.id}" in st.session_state: del st.session_state[f"sim_urg_{card.id}"]
-                            st.rerun()
+                        st.button(
+                            "Revert to Actuals", 
+                            key=f"reset_{card.id}", 
+                            on_click=on_revert_sim, 
+                            args=(card.id, sim_imp_key, sim_urg_key)
+                        )
+
 
                 st.markdown("---")
                 

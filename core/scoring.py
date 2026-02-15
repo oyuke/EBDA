@@ -55,13 +55,19 @@ def prepare_candidates(
         elif "overtime" in ev_str: urgency = 0.7
         elif "engagement" in ev_str: urgency = 0.6
         
-        # Apply Overrides
+        # Apply Persistent Overrides
+        if card.simulation_impact is not None:
+            impact = card.simulation_impact
+        if card.simulation_urgency is not None:
+            urgency = card.simulation_urgency
+            
+        # Legacy/Transient Overrides (Optional)
         if overrides:
             imp_key = f"sim_imp_{card.id}"
             urg_key = f"sim_urg_{card.id}"
-            
-            if imp_key in overrides: impact = overrides[imp_key]
-            if urg_key in overrides: urgency = overrides[urg_key]
+            # Only apply if not already set on object? Or override object?
+            # Object should be source of truth.
+            pass 
             
         candidates.append({
             "id": card.id,

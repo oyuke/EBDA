@@ -48,6 +48,12 @@ class DecisionCardConfig(BaseModel):
     required_evidence: Dict[str, List[str]] # e.g. {"drivers": ["..."], "kpis": ["..."]}
     rules: List[RuleConfig]
     recommendation_templates: List[RecommendationTemplate] = []
+    
+    # Mutable State Fields (Persisted)
+    simulation_impact: Optional[float] = None
+    simulation_urgency: Optional[float] = None
+    manual_override_reason: Optional[str] = None
+    manual_override_status: Optional[str] = None
 
 class AppConfig(BaseModel):
     version: str
