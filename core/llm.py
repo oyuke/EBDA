@@ -83,7 +83,10 @@ class LLMClient:
                 return response.text
                 
         except Exception as e:
-            return f"Error calling LLM: {str(e)}"
+            msg = str(e)
+            if "429" in msg or "rate limit" in msg.lower():
+                return f"⚠️ Model Busy (429): The selected model ({self.model_name}) is currently overloaded or rate-limited. Please try another model."
+            return f"Error calling LLM: {msg}"
             
         return "Error: Provider not supported."
 
