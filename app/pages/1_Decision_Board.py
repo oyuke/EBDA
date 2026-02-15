@@ -95,18 +95,27 @@ for card in config.decision_cards:
     elif "overtime" in str(state.key_evidence):
         urgency = 0.7
     
+    # --- Simulation Mode ---
+    with st.expander(f"🎛️ What-If Simulation ({card.id})"):
+        sim_impact = st.slider("Simulate Impact", 0.0, 1.0, impact, 0.1, key=f"sim_imp_{card.id}")
+        sim_urgency = st.slider("Simulate Urgency", 0.0, 1.0, urgency, 0.1, key=f"sim_urg_{card.id}")
+        if sim_impact != impact or sim_urgency != urgency:
+            impact = sim_impact
+            urgency = sim_urgency
+            st.caption("✨ Using simulated values")
+    
     score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
     
     state.total_priority = score_res["score"]
     state.confidence_penalty = uncertainty
     # Store for display
-    card_states.append((card, state, score_res))
+    card_states.append((card, state, score_res, impact, urgency))
 
 # Sort by Priority Descending
 card_states.sort(key=lambda x: x[1].total_priority, reverse=True)
 
 # 4. Display Loop
-for card, state, score_res in card_states:
+for card, state, score_res, final_impact, final_urgency in card_states:
     with st.container():
         # Header Row
         col1, col2, col3 = st.columns([1, 4, 2])
@@ -163,8 +172,8 @@ for card, state, score_res in card_states:
                 st.markdown(f"**Formula**: `Priority = (Impact × {config.priority_weights['impact']}) + (Urgency × {config.priority_weights['urgency']}) - (Uncertainty × {config.priority_weights['uncertainty']})`")
                 
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Impact Input", f"{impact:.2f}", help="Derived from Gap Size / N-count")
-                c2.metric("Urgency Input", f"{urgency:.2f}", help="Derived from Trend / Variance")
+                c1.metric("Impact Input", f"{final_impact:.2f}", help="Derived from Gap Size / N-count (or Simulated)")
+                c2.metric("Urgency Input", f"{final_urgency:.2f}", help="Derived from Trend / Variance (or Simulated)")
                 c3.metric("Uncertainty (Penalty)", f"{uncertainty:.2f}", help="Derived from Data Q-Gate", delta_color="inverse")
                 
                 st.write("---")
