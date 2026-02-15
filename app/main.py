@@ -19,9 +19,41 @@ st.set_page_config(
 )
 
 # Initialize Session State
-if 'config' not in st.session_state:
-    loader = ConfigLoader("configs/customer_default.yaml")
-    st.session_state.config = loader.load_config()
+if 'config' in st.session_state:
+    st.info(f"✅ Loaded Configuration: {st.session_state.config.customer_name} (v{st.session_state.config.version})")
+else:
+    st.warning("⚠️ No configuration loaded. Please initialize the project.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("A. Load Demo Project")
+        if st.button("Load Default Demo (Sample)"):
+            loader = ConfigLoader("configs/customer_default.yaml")
+            st.session_state.config = loader.load_config()
+            st.success("Demo configuration loaded!")
+            st.rerun()
+            
+    with col2:
+        st.subheader("B. Upload Configuration")
+        uploaded_config = st.file_uploader("Upload config.yaml", type=["yaml", "yml"])
+        if uploaded_config:
+            # Need to implement loader from stream or save temp
+            content = uploaded_config.read()
+            # For MVP, simple parsing using ConfigLoader logic but from string?
+            # ConfigLoader takes path. Let's make a temp adapter or just parse here.
+            import yaml
+            from data.models import AppConfig
+            try:
+                data = yaml.safe_load(content)
+                config = AppConfig(**data)
+                st.session_state.config = config
+                st.success(f"Configuration '{config.customer_name}' loaded successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to parse config: {e}")
+
+    # Stop execution until config is loaded
+    st.stop()
 
 if 'waves' not in st.session_state:
     st.session_state.waves = {} # Load from DB or file later check snapshot

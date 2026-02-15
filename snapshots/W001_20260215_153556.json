@@ -1,0 +1,15 @@
+{
+  "id": "W001_20260215_153556",
+  "wave_id": "W001",
+  "created_at": "2026-02-15 15:35:56.404023",
+  "config_hash": "config_hash",
+  "data_hash": "dummy_hash",
+  "wave_state": {
+    "id": "W001",
+    "name": "Meeting Preparation",
+    "status": "draft",
+    "created_at": "2026-02-15 15:35:56.404023",
+    "cards": {},
+    "evidence_refs": []
+  }
+}
