@@ -100,12 +100,25 @@ with tab4:
         
         # LLM Assist UI
         with st.expander("✨ AI Copilot (Add new metrics/cards)", expanded=False):
-            llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"])
+            c_prov, c_model = st.columns(2)
+            with c_prov:
+                llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"])
+            
+            with c_model:
+                if llm_provider == "OpenAI":
+                    model_options = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+                elif llm_provider == "Google (Gemini)":
+                    model_options = ["gemini-1.5-flash", "gemini-1.5-pro"]
+                else: # OpenRouter
+                    model_options = ["google/gemini-2.0-flash-001", "anthropic/claude-3-opus", "anthropic/claude-3-sonnet", "meta-llama/llama-3-70b-instruct"]
+                
+                selected_model = st.selectbox("Select Model", model_options, key="model_selector")
+
             if st.button("Initialize Copilot"):
                 api_key = SecurityManager.get_api_key(llm_provider)
                 if api_key:
-                    st.session_state['llm_client'] = LLMClient(llm_provider, api_key)
-                    st.success("Copilot Ready!")
+                    st.session_state['llm_client'] = LLMClient(llm_provider, api_key, selected_model)
+                    st.success(f"Copilot Ready! ({selected_model})")
                 else:
                     st.error("API Key not found. Please set it in 'API Settings' tab.")
 

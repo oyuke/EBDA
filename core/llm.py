@@ -5,9 +5,10 @@ import streamlit as st
 from typing import List, Dict, Any
 
 class LLMClient:
-    def __init__(self, provider: str, api_key: str):
+    def __init__(self, provider: str, api_key: str, model_name: str = "gpt-4o"):
         self.provider = provider
         self.api_key = api_key
+        self.model_name = model_name
         
     def generate_suggestions(self, context: str, item_type: str) -> str:
         """
@@ -36,10 +37,9 @@ class LLMClient:
                     base_url="https://openrouter.ai/api/v1" if self.provider == "OpenRouter" else None,
                     api_key=self.api_key
                 )
-                model = "gpt-4o" if self.provider == "OpenAI" else "google/gemini-2.0-flash-001" # Default OpenRouter model
                 
                 response = client.chat.completions.create(
-                    model=model,
+                    model=self.model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
@@ -50,7 +50,7 @@ class LLMClient:
                 
             elif self.provider == "Google (Gemini)":
                 genai.configure(api_key=self.api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel(self.model_name)
                 response = model.generate_content(system_prompt + "\n" + user_prompt)
                 return response.text
                 
