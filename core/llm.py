@@ -39,9 +39,11 @@ class LLMClient:
         
         try:
             if self.provider == "OpenAI" or self.provider == "OpenRouter":
+                extra_headers = {"HTTP-Referer": "http://localhost:8501", "X-Title": "Evidence-Based DSS"} if self.provider == "OpenRouter" else None
                 client = openai.OpenAI(
                     base_url="https://openrouter.ai/api/v1" if self.provider == "OpenRouter" else None,
-                    api_key=self.api_key
+                    api_key=self.api_key,
+                    default_headers=extra_headers
                 )
                 
                 response = client.chat.completions.create(
