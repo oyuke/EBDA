@@ -187,11 +187,12 @@ for card, state, score_res, final_impact, final_urgency in card_states:
                 c3.metric("Uncertainty (Penalty)", f"{uncertainty:.2f}", help="Derived from Data Q-Gate", delta_color="inverse")
                 
                 st.write("---")
-                if "WASPAS" in ranking_method:
+                if "WASPAS" in ranking_method and "components" in score_res:
                     st.write("**WASPAS Components:**")
                     comps = score_res["components"]
                     st.latex(f"Q = 0.5 \\times {comps['saw_score']:.2f} (SAW) + 0.5 \\times {comps['wpm_score']:.2f} (WPM)")
-                    
+                elif "WASPAS" in ranking_method:
+                     st.warning("⚠️ High Load: WASPAS details unavailable (using provisional score).")
                 st.write("**SAW Breakdown:**")
                 breakdown = score_res["breakdown"]
                 st.latex(f"{breakdown['impact_term']:.2f} + {breakdown['urgency_term']:.2f} - {abs(breakdown['uncertainty_term']):.2f}")
