@@ -5,13 +5,16 @@ import yaml
 from core.converter import DataConverter
 from data.models import DecisionCardConfig, DriverConfig
 from core.templates import DataTemplates
+from core.security import SecurityManager
+from core.llm import LLMClient
+import io
 
 st.set_page_config(page_title="Data Tools", layout="wide")
 st.title("🛠️ Data Management & Conversion")
 
 st.markdown("Convert human-editable CSVs into JSON/YAML configuration for the app.")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor", "5. 🤖 AI Generator"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor", "5. AI Generator", "6. 🔐 API Settings"])
 
 # --- Tab 1: Config Builder ---
 with tab1:
@@ -89,19 +92,61 @@ with tab3:
     else:
         st.warning("No configuration loaded.")
 
-# --- Tab 4: Interactive Editor ---
+# --- Tab 4: Interactive Editor & LLM Assist ---
 with tab4:
     if 'config' in st.session_state:
         st.subheader("Edit Active Configuration")
         config = st.session_state.config
         
+        # LLM Assist UI
+        with st.expander("✨ AI Copilot (Add new metrics/cards)", expanded=False):
+            llm_provider = st.selectbox("Select Provider", ["OpenAI", "Google (Gemini)", "OpenRouter"])
+            if st.button("Initialize Copilot"):
+                api_key = SecurityManager.get_api_key(llm_provider)
+                if api_key:
+                    st.session_state['llm_client'] = LLMClient(llm_provider, api_key)
+                    st.success("Copilot Ready!")
+                else:
+                    st.error("API Key not found. Please set it in 'API Settings' tab.")
+
         st.info("⚠️ Changes made here apply immediately to the session but must be Exported to persist.")
         
         # 1. Drivers Editor
         st.markdown("### 1. Drivers")
-        df_drivers_current = DataConverter.drivers_to_csv(config.drivers)
-        edited_drivers_df = st.data_editor(df_drivers_current, num_rows="dynamic", key="editor_drivers_df")
+        col_d1, col_d2 = st.columns([3, 1])
+        with col_d1:
+            df_drivers_current = DataConverter.drivers_to_csv(config.drivers)
+            edited_drivers_df = st.data_editor(df_drivers_current, num_rows="dynamic", key="editor_drivers_df")
         
+        with col_d2:
+            st.markdown("#### Copilot")
+            if st.button("Suggest Drivers"):
+                if 'llm_client' in st.session_state:
+                    with st.spinner("Thinking..."):
+                        suggestion = st.session_state['llm_client'].generate_suggestions(df_drivers_current.to_csv(), "Drivers")
+                        st.session_state['driver_suggestion'] = suggestion
+                else:
+                    st.warning("Init Copilot first.")
+            
+            if 'driver_suggestion' in st.session_state:
+                st.caption("Suggestion:")
+                st.code(st.session_state['driver_suggestion'], language="csv")
+                if st.button("Append Suggestion"):
+                    import io
+                    try:
+                        new_rows = pd.read_csv(io.StringIO(st.session_state['driver_suggestion']), header=None)
+                        # Align columns
+                        new_rows.columns = df_drivers_current.columns
+                        combined = pd.concat([df_drivers_current, new_rows], ignore_index=True)
+                        # Update session config directly via wrapper? 
+                        # Actual update happens when "Apply" is clicked below on main editor, 
+                        # but st.data_editor state is tricky. 
+                        # Workaround: Show just the text to copy-paste or specialized append logic.
+                        # For MVP: Just verify parsing.
+                        st.info("Copy the CSV above and paste into the editor, or use the 'Append' button below (Experimental).")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
         if st.button("Apply Driver Changes"):
             try:
                 new_drivers = DataConverter.csv_to_drivers(edited_drivers_df)
@@ -115,9 +160,26 @@ with tab4:
 
         # 2. Cards Editor
         st.markdown("### 2. Decision Cards")
-        df_cards_current = DataConverter.decision_card_to_csv(config.decision_cards)
-        edited_cards_df = st.data_editor(df_cards_current, num_rows="dynamic", key="editor_cards_df")
         
+        col_c1, col_c2 = st.columns([3, 1])
+        with col_c1:
+            df_cards_current = DataConverter.decision_card_to_csv(config.decision_cards)
+            edited_cards_df = st.data_editor(df_cards_current, num_rows="dynamic", key="editor_cards_df")
+            
+        with col_c2:
+            st.markdown("#### Copilot")
+            if st.button("Suggest Cards"):
+                if 'llm_client' in st.session_state:
+                    with st.spinner("Analyzing context..."):
+                        suggestion = st.session_state['llm_client'].generate_suggestions(df_cards_current.to_csv(), "Decision Cards")
+                        st.session_state['card_suggestion'] = suggestion
+                else:
+                    st.warning("Init Copilot first.")
+            
+            if 'card_suggestion' in st.session_state:
+                st.caption("Suggestion:")
+                st.code(st.session_state['card_suggestion'], language="csv")
+
         if st.button("Apply Card Changes"):
             try:
                 new_cards = DataConverter.csv_to_decision_card(edited_cards_df)
@@ -142,3 +204,82 @@ with tab4:
 
     else:
         st.warning("No configuration loaded.")
+
+# --- Tab 6: API Settings ---
+with tab6:
+    st.subheader("🔐 Secure API Key Management")
+    st.markdown("Keys are encrypted (Fernet 256-bit) and stored locally in `.secrets/api_keys.enc`.")
+    st.info("These keys are used for the AI Copilot features.")
+    
+    col_k1, col_k2, col_k3 = st.columns(3)
+    
+    with col_k1:
+        st.markdown("### OpenAI")
+        key_oa = st.text_input("API Key", type="password", key="key_oa")
+        if st.button("Save OpenAI Key"):
+            SecurityManager.save_api_key("OpenAI", key_oa)
+            st.success("Saved!")
+            
+    with col_k2:
+        st.markdown("### Google (Gemini)")
+        key_gg = st.text_input("API Key", type="password", key="key_gg")
+        if st.button("Save Gemini Key"):
+            SecurityManager.save_api_key("Google (Gemini)", key_gg)
+            st.success("Saved!")
+            
+    with col_k3:
+        st.markdown("### OpenRouter")
+        key_or = st.text_input("API Key", type="password", key="key_or")
+        if st.button("Save OpenRouter Key"):
+            SecurityManager.save_api_key("OpenRouter", key_or)
+            st.success("Saved!")
+
+    st.markdown("---")
+    st.caption("Active Keys Status:")
+    status = SecurityManager.verify_keys_exist()
+    cols = st.columns(len(status) if status else 1)
+    if status:
+        for idx, (s, active) in enumerate(status.items()):
+            cols[idx].markdown(f"- **{s}**: {'✅ Active' if active else '❌ Missing'}")
+
+    else:
+        st.warning("No configuration loaded.")
+
+# --- Tab 5: AI Generator ---
+with tab5:
+    st.subheader("🤖 AI-Assisted Configuration")
+    st.markdown("Generate initial CSV datasets using any LLM (ChatGPT, Claude, Gemini).")
+    
+    domain = st.text_input("Target Domain (e.g. 'SaaS Sales Team', 'Hospital ER Staffing')", "SaaS Customer Success")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("### Step 1: Generate Prompt")
+        base_prompt = DataTemplates.get_llm_prompt_config().replace("[INSERT DOMAIN HERE]", domain)
+        st.text_area("Copy this prompt to ChatGPT:", base_prompt, height=250)
+        
+    with c2:
+        st.markdown("### Step 2: Paste CSV Result")
+        st.markdown("Paste the **Drivers CSV** generated by LLM here:")
+        drivers_txt = st.text_area("Drivers CSV Content", height=100)
+        st.markdown("Paste the **Cards CSV** generated by LLM here:")
+        cards_txt = st.text_area("Cards CSV Content", height=100)
+        
+        if st.button("Parse & Load from AI"):
+            import io
+            try:
+                if drivers_txt:
+                    df_d = pd.read_csv(io.StringIO(drivers_txt))
+                    new_drivers = DataConverter.csv_to_drivers(df_d)
+                    st.session_state.config.drivers = new_drivers
+                    st.success(f"Loaded {len(new_drivers)} drivers!")
+                
+                if cards_txt:
+                    df_c = pd.read_csv(io.StringIO(cards_txt))
+                    new_cards = DataConverter.csv_to_decision_card(df_c)
+                    st.session_state.config.decision_cards = new_cards
+                    st.success(f"Loaded {len(new_cards)} cards!")
+                    
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error parsing AI output: {e}")
