@@ -14,6 +14,7 @@ from core.llm import LLMClient
 import io
 
 from core.i18n import I18nManager
+from core.state_manager import StatePersistence
 
 from core.sidebar import render_sidebar
 
@@ -167,6 +168,7 @@ with tab4:
                             # Update Config
                             new_drivers_obj = DataConverter.csv_to_drivers(combined)
                             st.session_state.config.drivers = new_drivers_obj
+                            StatePersistence.save(st.session_state.config)
                             
                             del st.session_state['driver_suggestion']
                             st.success(f"Appended {len(new_rows)} drivers!")
@@ -180,6 +182,7 @@ with tab4:
             try:
                 new_drivers = DataConverter.csv_to_drivers(edited_drivers_df)
                 st.session_state.config.drivers = new_drivers
+                StatePersistence.save(st.session_state.config)
                 st.success(f"Updated {len(new_drivers)} drivers!")
                 st.rerun()
             except Exception as e:
@@ -220,7 +223,20 @@ with tab4:
                             combined = pd.concat([df_cards_current, new_rows], ignore_index=True)
                             
                             new_cards_obj = DataConverter.csv_to_decision_card(combined)
+                            
+                            # Preserve
+                            if st.session_state.config.decision_cards:
+                                old_map = {c.id: c for c in st.session_state.config.decision_cards}
+                                for nc in new_cards_obj:
+                                    if nc.id in old_map:
+                                        oc = old_map[nc.id]
+                                        nc.simulation_impact = oc.simulation_impact
+                                        nc.simulation_urgency = oc.simulation_urgency
+                                        nc.manual_override_status = oc.manual_override_status
+                                        nc.manual_override_reason = oc.manual_override_reason
+
                             st.session_state.config.decision_cards = new_cards_obj
+                            StatePersistence.save(st.session_state.config)
                             
                             del st.session_state['card_suggestion']
                             st.success(f"Appended {len(new_rows)} cards!")
@@ -233,7 +249,20 @@ with tab4:
         if st.button("Apply Card Changes"):
             try:
                 new_cards = DataConverter.csv_to_decision_card(edited_cards_df)
+                
+                # Preserve existing runtime state (simulation, overrides)
+                if st.session_state.config.decision_cards:
+                    old_map = {c.id: c for c in st.session_state.config.decision_cards}
+                    for nc in new_cards:
+                        if nc.id in old_map:
+                            oc = old_map[nc.id]
+                            nc.simulation_impact = oc.simulation_impact
+                            nc.simulation_urgency = oc.simulation_urgency
+                            nc.manual_override_status = oc.manual_override_status
+                            nc.manual_override_reason = oc.manual_override_reason
+
                 st.session_state.config.decision_cards = new_cards
+                StatePersistence.save(st.session_state.config)
                 st.success(f"Updated {len(new_cards)} decision cards!")
                 st.rerun()
             except Exception as e:
@@ -249,6 +278,7 @@ with tab4:
         
         if st.button("Update Weights"):
             st.session_state.config.priority_weights = {"impact": w_imp, "urgency": w_urg, "uncertainty": w_unc}
+            StatePersistence.save(st.session_state.config)
             st.success("Weights Updated!")
             st.rerun()
 
