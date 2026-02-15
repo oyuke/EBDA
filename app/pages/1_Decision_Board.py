@@ -15,6 +15,7 @@ from core.io import ConfigLoader
 
 from core.decision import DecisionEngine
 from core.snapshot import SnapshotManager
+from core.audit import AuditLogger
 from core.visualizer import CausalVisualizer
 import graphviz
 
