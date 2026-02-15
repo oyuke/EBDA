@@ -31,4 +31,4 @@ st.subheader("System Actions")
 if st.button("Reset Session State"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
