@@ -6,6 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from core.quality import QualityGateway
 from core.io import DataLoader
+from core.templates import DataTemplates
 import os
 
 st.set_page_config(page_title="Evidence Input", layout="wide")
@@ -21,6 +22,27 @@ data_loader = DataLoader()
 
 # 2. Upload Survey Data
 st.subheader("1. Survey Data (Quantitative)")
+
+# Utility: Template & AI
+with st.expander("ℹ️ Help & AI Generator (How to prepare data)"):
+    st.markdown("""
+    ### 1. CSV Format
+    - Columns should match the `survey_items` defined in your Drivers config (e.g., `Q1`, `Q2`).
+    - Rows represent individual respondents.
+    - Values should be numeric (e.g., 1-5).
+    """)
+    st.download_button("📥 Download Sample Survey CSV", 
+                       DataTemplates.get_survey_template().to_csv(index=False), 
+                       "sample_survey.csv")
+    
+    st.markdown("---")
+    st.markdown("### 2. Generate with AI")
+    st.markdown("Use this prompt to generate synthetic data compatible with your current drivers.")
+    
+    current_drivers = [d.id for d in st.session_state.config.drivers]
+    survey_prompt = DataTemplates.get_llm_prompt_survey(str(current_drivers))
+    st.text_area("Copy to ChatGPT:", survey_prompt, height=150)
+
 uploaded_survey = st.file_uploader("Upload Survey CSV", type=["csv"])
 
 if uploaded_survey:
