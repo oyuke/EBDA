@@ -104,65 +104,25 @@ with tab4:
         
         # LLM Assist UI
         with st.expander("✨ AI Copilot (Add new metrics/cards)", expanded=False):
-            c_prov, c_model = st.columns(2)
+            # Load Global Preferences
+            active_provider = PreferenceManager.get("active_llm_provider", "OpenAI")
+            # Default model fallbacks if not set
+            default_model = "gpt-4o"
+            if active_provider == "Google (Gemini)": default_model = "gemini-1.5-flash"
+            elif active_provider == "OpenRouter": default_model = "google/gemini-2.0-flash-001"
             
-            with c_prov:
-                # Preference loading
-                saved_provider = PreferenceManager.get("copilot_provider", "OpenAI")
-                prov_options = ["OpenAI", "Google (Gemini)", "OpenRouter"]
-                try:
-                    def_idx = prov_options.index(saved_provider)
-                except:
-                    def_idx = 0
-                
-                def on_prov_change():
-                    # Check session state for the key 'copilot_provider'
-                    if 'copilot_provider' in st.session_state:
-                         PreferenceManager.save("copilot_provider", st.session_state.copilot_provider)
-
-                llm_provider = st.selectbox("Select Provider", prov_options, index=def_idx, key="copilot_provider", on_change=on_prov_change)
-                api_key = SecurityManager.get_api_key(llm_provider)
-                
-                if api_key:
-                    if st.button("🔄 Fetch Models from API"):
-                        with st.spinner(f"Fetching models for {llm_provider}..."):
-                            try:
-                                models = LLMClient.fetch_available_models(llm_provider, api_key)
-                                st.session_state[f"models_{llm_provider}"] = models
-                                if not models:
-                                    st.error("No models found or API error.")
-                            except AttributeError:
-                                st.error("System update pending. Please stop and restart the app server.")
-                            except Exception as e:
-                                st.error(f"Error: {e}")
-                else:
-                    st.warning("Save API Key in Tab 6 first.")
-
-            with c_model:
-                # Get models from session or default
-                model_list = st.session_state.get(f"models_{llm_provider}", [])
-                
-                if not model_list:
-                    # Fallback defaults if not fetched
-                    if llm_provider == "OpenAI":
-                        model_list = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
-                    elif llm_provider == "Google (Gemini)":
-                        model_list = ["gemini-1.5-flash", "gemini-1.5-pro"]
-                    else: 
-                        model_list = ["google/gemini-2.0-flash-001", "anthropic/claude-3-sonnet"]
-                
-                # Search/Filter
-                search_query = st.text_input("Filter Models", placeholder="e.g. flash, gpt-4...")
-                filtered_models = [m for m in model_list if search_query.lower() in m.lower()] if search_query else model_list
-                
-                selected_model = st.selectbox("Select Model", filtered_models, key="model_selector")
+            active_model = PreferenceManager.get(f"model_{active_provider}", default_model)
+            
+            st.info(f"Using Global Config: **{active_provider}** / **{active_model}** (Change in Tab 6)")
+            
+            api_key = SecurityManager.get_api_key(active_provider)
 
             if st.button("Initialize Copilot"):
-                if api_key and selected_model:
-                    st.session_state['llm_client'] = LLMClient(llm_provider, api_key, selected_model)
-                    st.success(f"Copilot Ready! ({selected_model})")
+                if api_key and active_model:
+                    st.session_state['llm_client'] = LLMClient(active_provider, api_key, active_model)
+                    st.success(f"Copilot Ready! ({active_model})")
                 else:
-                    st.error("Please configure Provider, Key, and Model.")
+                    st.error("Please configure API Key in Tab 6.")
 
         st.info("⚠️ Changes made here apply immediately to the session but must be Exported to persist.")
         
@@ -290,11 +250,12 @@ with tab4:
         st.warning("No configuration loaded.")
 
 # --- Tab 6: API Settings ---
+# --- Tab 6: API & Model Settings ---
 with tab6:
     st.subheader("🔐 Secure API Key Management")
-    st.markdown("Keys are encrypted (Fernet 256-bit) and stored locally in `.secrets/api_keys.enc`.")
-    st.info("These keys are used for the AI Copilot features.")
-    
+    st.info("Keys are encrypted and stored locally. Configure your preferred models here to use across the app.")
+
+    # 1. API Keys
     col_k1, col_k2, col_k3 = st.columns(3)
     
     with col_k1:
@@ -317,6 +278,69 @@ with tab6:
         if st.button("Save OpenRouter Key"):
             SecurityManager.save_api_key("OpenRouter", key_or)
             st.success("Saved!")
+
+    st.markdown("---")
+    st.subheader("🤖 Global Model Configuration")
+    
+    # Active Provider
+    current_provider = PreferenceManager.get("active_llm_provider", "OpenAI")
+    prov_options = ["OpenAI", "Google (Gemini)", "OpenRouter"]
+    
+    def on_provider_change():
+        PreferenceManager.save("active_llm_provider", st.session_state.global_provider_select)
+        
+    try: idx = prov_options.index(current_provider) 
+    except: idx = 0
+    
+    selected_provider = st.selectbox("Active Provider (Used for all Copilot features)", 
+                                     prov_options, 
+                                     index=idx, 
+                                     key="global_provider_select", 
+                                     on_change=on_provider_change)
+    
+    # Model Selection for Active Provider
+    st.markdown(f"#### Configure Model for {selected_provider}")
+    
+    api_key = SecurityManager.get_api_key(selected_provider)
+    if not api_key:
+        st.warning(f"Please save API Key for {selected_provider} above.")
+    else:
+        col_m1, col_m2 = st.columns([1, 3])
+        with col_m1:
+            if st.button("🔄 Fetch/Refresh Models"):
+                with st.spinner("Fetching..."):
+                    try:
+                        models = LLMClient.fetch_available_models(selected_provider, api_key)
+                        st.session_state[f"models_{selected_provider}"] = models
+                        st.success(f"Fetched {len(models)} models.")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        
+        with col_m2:
+            # Load models
+            models = st.session_state.get(f"models_{selected_provider}", [])
+            if not models:
+                # Defaults
+                if selected_provider=="OpenAI": models=["gpt-4o", "gpt-4-turbo"]
+                elif selected_provider=="Google (Gemini)": models=["gemini-1.5-flash"]
+                elif selected_provider=="OpenRouter": models=["google/gemini-2.0-flash-001", "anthropic/claude-3-sonnet"]
+            
+            # Load saved model preference
+            saved_model = PreferenceManager.get(f"model_{selected_provider}", models[0])
+            
+            # Filter
+            search = st.text_input("Search Model", placeholder="e.g. gpt-4", label_visibility="collapsed")
+            filtered = [m for m in models if search.lower() in m.lower()] if search else models
+            
+            try: m_idx = filtered.index(saved_model)
+            except: m_idx = 0
+            
+            def on_model_change():
+                PreferenceManager.save(f"model_{selected_provider}", st.session_state.global_model_select)
+            
+            st.selectbox("Select Default Model", filtered, index=m_idx, key="global_model_select", on_change=on_model_change)
+            
+            st.info(f"Currently Active: **{selected_provider}** / **{st.session_state.get('global_model_select', saved_model)}**")
 
     st.markdown("---")
     st.caption("Active Keys Status:")

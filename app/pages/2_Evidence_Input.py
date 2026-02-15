@@ -96,43 +96,24 @@ with tab3:
     # --- AI Copilot Section ---
     with st.expander("✨ AI Copilot (Generate/Augment Data)", expanded=False):
         # Provider Selection (Shared Prefs)
-        saved_provider = PreferenceManager.get("copilot_provider", "OpenAI")
-        prov_options = ["OpenAI", "Google (Gemini)", "OpenRouter"]
-        try:
-            def_idx = prov_options.index(saved_provider)
-        except:
-            def_idx = 0
-            
-        def on_prov_change():
-            if 'evidence_copilot_provider' in st.session_state:
-                 PreferenceManager.save("copilot_provider", st.session_state.evidence_copilot_provider)
-
-        llm_provider = st.selectbox("LLM Provider", prov_options, index=def_idx, key="evidence_copilot_provider", on_change=on_prov_change)
+        active_provider = PreferenceManager.get("active_llm_provider", "OpenAI")
         
-        # Model Selection
-        api_key = SecurityManager.get_api_key(llm_provider)
-        if api_key:
-            if st.button("🔄 Fetch Models", key="fetch_models_ev"):
-                with st.spinner("Fetching..."):
-                    try:
-                        models = LLMClient.fetch_available_models(llm_provider, api_key)
-                        st.session_state[f"models_{llm_provider}_ev"] = models
-                    except: st.error("Fetch failed.")
-            
-            model_list = st.session_state.get(f"models_{llm_provider}_ev", [])
-            if not model_list:
-                # Default fallbacks
-                if llm_provider=="OpenAI": model_list=["gpt-4o", "gpt-4-turbo"]
-                elif llm_provider=="Google (Gemini)": model_list=["gemini-1.5-flash"]
-                else: model_list=["google/gemini-2.0-flash-001"]
-            
-            selected_model = st.selectbox("Model", model_list, key="evidence_model_sel")
-            
-            if st.button("Initialize Copilot", key="init_copilot_ev"):
-                 st.session_state['ev_llm'] = LLMClient(llm_provider, api_key, selected_model)
-                 st.success(f"Ready ({selected_model})!")
-        else:
-            st.error("API Key missing (Set in Data Tools).")
+        default_model = "gpt-4o"
+        if active_provider == "Google (Gemini)": default_model = "gemini-1.5-flash"
+        elif active_provider == "OpenRouter": default_model = "google/gemini-2.0-flash-001"
+        
+        active_model = PreferenceManager.get(f"model_{active_provider}", default_model)
+        
+        st.info(f"Using Global Config: **{active_provider}** / **{active_model}** (Change in Data Tools)")
+        
+        api_key = SecurityManager.get_api_key(active_provider)
+        
+        if st.button("Initialize Copilot", key="init_copilot_ev"):
+             if api_key:
+                 st.session_state['ev_llm'] = LLMClient(active_provider, api_key, active_model)
+                 st.success(f"Ready ({active_model})!")
+             else:
+                 st.error(f"Missing API Key for {active_provider}. Set in Data Tools.")
             
         st.markdown("---")
 
