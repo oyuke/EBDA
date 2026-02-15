@@ -4,17 +4,31 @@ import json
 import yaml
 from core.converter import DataConverter
 from data.models import DecisionCardConfig, DriverConfig
+from core.templates import DataTemplates
 
 st.set_page_config(page_title="Data Tools", layout="wide")
 st.title("🛠️ Data Management & Conversion")
 
 st.markdown("Convert human-editable CSVs into JSON/YAML configuration for the app.")
 
-tab1, tab2, tab3, tab4 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["1. Config Builder", "2. Data Converter", "3. Export Current", "4. Interactive Editor", "5. 🤖 AI Generator"])
 
 # --- Tab 1: Config Builder ---
 with tab1:
     st.subheader("Build Configuration from CSV")
+    st.info("Download templates to see the required format.")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button("📥 Download Drivers Template", 
+                           DataTemplates.get_driver_template().to_csv(index=False), 
+                           "template_drivers.csv")
+    with c2:
+        st.download_button("📥 Download Cards Template", 
+                           DataTemplates.get_card_template().to_csv(index=False), 
+                           "template_cards.csv")
+    
+    st.markdown("---")
     
     col1, col2 = st.columns(2)
     
