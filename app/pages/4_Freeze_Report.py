@@ -1,0 +1,120 @@
+import streamlit as st
+import pandas as pd
+from core.snapshot import SnapshotManager
+from core.report import ReportGenerator
+from core.decision import DecisionEngine
+from core.priority import PriorityCalculator
+import sys
+import os
+
+# Ensure proper importing
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from core.quality import QualityGateway
+from core.io import DataLoader
+
+st.set_page_config(page_title="Report & Freeze", layout="wide")
+st.title("📑 Report Generation & Freeze")
+
+# 1. State Check
+if 'config' not in st.session_state:
+    st.warning("Please configure project first.")
+    st.stop()
+
+config = st.session_state.config
+survey_df = st.session_state.get('survey_data')
+kpi_df = st.session_state.get('kpi_data')
+
+# 2. Re-calculate current state for Report
+# (In a real app, this should be cached in session state more cleanly)
+# Ideally, we should unify the logic from Decision_Board here or in a dedicated service
+# For MVP, we'll re-run the logic quickly
+
+def get_current_state():
+    decision_engine = DecisionEngine()
+    priority_calc = PriorityCalculator(config.priority_weights)
+    
+    # Context (simplified MVP logic)
+    context = {}
+    if survey_df is not None:
+        for driver in config.drivers:
+            cols = [c for c in driver.survey_items if c in survey_df.columns]
+            if cols: context[driver.id] = survey_df[cols].mean().mean()
+            
+    if kpi_df is not None:
+        if 'turnover_rate_junior' in kpi_df.columns:
+            context['turnover_rate_junior'] = kpi_df['turnover_rate_junior'].iloc[-1]
+            
+    states = []
+    penalty = st.session_state.get('survey_quality', {}).get('penalty', 0.0)
+    
+    for card in config.decision_cards:
+        s = decision_engine.evaluate_card(card, context)
+        # Mock priority for report consistency with dashboard
+        impact = 0.8 if s.status == "RED" else 0.4
+        urgency = 0.5 # Default mock
+        uncertainty = penalty
+        
+        score_res = priority_calc.calculate_saw(impact, urgency, uncertainty)
+        s.total_priority = score_res["score"]
+        states.append((card, s, score_res))
+        
+    return states, context
+
+current_states, context = get_current_state()
+
+# 3. Preview
+st.subheader("Summarized Status")
+df_summary = pd.DataFrame([
+    {
+        "ID": cs[0].id,
+        "Title": cs[0].title,
+        "Status": cs[1].status,
+        "Priority": f"{cs[1].total_priority:.2f}"
+    }
+    for cs in current_states
+])
+st.dataframe(df_summary)
+
+# 4. Freeze Action
+st.subheader("Freeze Snapshot")
+st.markdown("Create an immutable snapshot of the current state before generating final reports.")
+
+snapshot_manager = SnapshotManager()
+
+col1, col2 = st.columns(2)
+with col1:
+    snap_name = st.text_input("Snapshot Name / Note", "Meeting Preparation")
+    
+if st.button("❄️ Freeze Current State"):
+    # Mock Wave
+    from data.models import Wave
+    wave = Wave(id="W001", name=snap_name)
+    # Ideally populate wave with states...
+    
+    snap = snapshot_manager.freeze(wave, "config_hash")
+    st.session_state['last_snapshot'] = snap
+    st.success(f"Snapshot Frozen: {snap.id}")
+
+# 5. Report Generation
+st.subheader("Export Report")
+
+if 'last_snapshot' in st.session_state:
+    st.info(f"Target Snapshot: {st.session_state['last_snapshot'].id}")
+else:
+    st.warning("You are generating a report on the LIVE (unfrozen) state.")
+
+report_gen = ReportGenerator(config)
+
+if st.button("📄 Generate Decision Memo (DOCX)"):
+    docx_buffer = report_gen.generate_docx(
+        wave_data={"status": "DRAFT"},
+        decision_states=current_states,
+        snapshot_id=st.session_state.get('last_snapshot', type('obj', (object,), {'id': 'LIVE'})).id
+    )
+    
+    st.download_button(
+        label="Download DOCX",
+        data=docx_buffer,
+        file_name=f"Decision_Memo_{config.customer_name}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )

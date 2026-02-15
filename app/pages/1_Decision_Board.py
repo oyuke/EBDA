@@ -147,13 +147,6 @@ for card, state, score_res in card_states:
         st.json(state.model_dump(include={'status','total_priority','confidence_penalty'})) # Mini debug
         st.divider()
 
-# 5. Freeze Action
+# Freeze Action moved to page 4_Freeze_Report
 st.sidebar.markdown("### Actions")
-if st.sidebar.button("❄️ Freeze Snapshot"):
-    # Mock Wave object
-    from data.models import Wave
-    wave = Wave(id="W001", name="Current Wave")
-    # Populate wave with states...
-    
-    snap = snapshot_manager.freeze(wave, "config_hash_123")
-    st.sidebar.success(f"Snapshot Frozen: {snap.id}")
+st.sidebar.info("Go to 'Report & Freeze' page to finalize.")
